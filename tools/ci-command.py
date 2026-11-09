@@ -22,6 +22,12 @@ logs=Path('.test-artifacts/ci');logs.mkdir(parents=True,exist_ok=True)
 name=''.join(c if c.isalnum() else '-' for c in args.label)
 (logs/(name+'.log')).write_text(output,encoding='utf-8')
 print(output,flush=True)
+if args.label == 'software-Vulkan-functional':
+    for line in output.splitlines():
+        marker='Actual jm.1 reference on software Vulkan: '
+        if marker in line:
+            value=line.split(marker,1)[1].replace('%','%25').replace('\r','%0D')
+            print(f'::notice title=jm.1 software Vulkan reference::{value}',flush=True)
 if result.returncode:
     tail=output[-3500:]
     escaped=tail.replace('%','%25').replace('\r','%0D').replace('\n','%0A')

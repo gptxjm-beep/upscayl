@@ -21,7 +21,7 @@ npm run build
 node tests/jobs/ui.smoke.cjs
 ```
 
-The native functional tests force Electron's bundled SwiftShader ICD for child processes. They run real model inference, decode outputs and verify dimensions, Pause/drain and recovery without reprocessing completed files. They are correctness tests, not benchmarks or NVIDIA GPU validation. UI tests navigate/edit Settings with an Enhanced user agent and inspect the original progress card using synthetic job states; they do not claim GPU interaction coverage. Windows CI additionally compiles WIC/thread and protocol tests and verifies both installer and ZIP payloads against the just-built engine hash, original model hashes, runtime DLLs, x64 PE headers and packaged application routing.
+The native functional tests force Electron's bundled SwiftShader ICD for child processes. They run real model inference, decode outputs and verify dimensions, Pause/drain, recovery without reprocessing completed files and STOP cancellation. They are correctness tests, not benchmarks or NVIDIA GPU validation. UI tests navigate/edit Settings with an Enhanced user agent and inspect the original progress card using synthetic job states and actual button IPC messages; they do not claim GPU interaction coverage. Windows CI additionally compiles WIC/thread and protocol tests and verifies both installer and ZIP payloads against the just-built engine hash, original model hashes, runtime DLLs, x64 PE headers and packaged application routing.
 
 ## Windows acceptance
 

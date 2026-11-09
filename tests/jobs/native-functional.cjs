@@ -57,3 +57,14 @@ test('native pipeline drains, restarts after Pause and skips adopted outputs',{t
  for(const [name,time]of times)assert.equal(fs.statSync(path.join(recovered.session.output,name)).mtimeMs,time);
  console.log('Native Pause/drain/recovery passed on SwiftShader CPU Vulkan; not a GPU benchmark.');
 });
+
+test('STOP cancels the real native child and retains only validated adopted images',{timeout:660000},async t=>{
+ const f=await fixture(t,32);const manager=f.make();let requested=false;
+ manager.on('state',s=>{if(s.phase==='running'&&s.completed>=1&&!requested){requested=true;manager.cancel();}});
+ const end=wait(manager);await manager.create(f.settings,path.join(root,'resources/models'),engine);await end;
+ assert(requested);assert.equal(manager.session.phase,'cancelled');assert(!manager.child);
+ const done=manager.session.items.filter(i=>i.state==='completed');assert(done.length>0&&done.length<32);
+ for(const i of done) {const info=await sharp(path.join(manager.session.output,i.name)).metadata();assert.equal(info.width,40);assert.equal(info.height,40);}
+ assert(fs.existsSync(manager.session.file));assert(!fs.existsSync(path.join(manager.session.output,'.upscayl-session','work')));
+ console.log('Native STOP cancellation passed on software Vulkan; no GPU claim.');
+});

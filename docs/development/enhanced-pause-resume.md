@@ -1,5 +1,7 @@
 # Upscayl Enhanced 2.15.0-jm.1 — review build
 
+Historical jm.1 design, which failed the user's Windows acceptance test. Its sidebar controls and UUID output layout have been superseded by [jm.2](../Enhanced-jm2.md). Do not use the UI/build instructions below for the current branch.
+
 ## Scope and state
 
 Enhanced **Batch** uses the vendored native pipeline. Single Image and Double Upscayl retain their original handlers/engine; Pause is available for batch jobs only. No per-image process fallback is used. If the enhanced binary is missing, batch start reports an error instead of silently changing execution strategy.

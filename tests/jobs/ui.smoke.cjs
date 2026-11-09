@@ -28,6 +28,12 @@ const screenshots=path.join(root,'.test-artifacts');fs.mkdirSync(screenshots,{re
   const stop=page.getByRole('button',{name:'STOP',exact:true});await stop.waitFor();
   assert.equal(await button.isDisabled(),phase==='pausing');assert.equal(await stop.isDisabled(),false);
   assert.equal(await page.getByRole('button',{name:'Cancel',exact:true}).count(),0);
+  if(phase==='paused'||phase==='running') {
+    const channel=phase==='paused'?'jm:resume':'jm:pause';
+    await app.evaluate(({ipcMain},channel)=>{global.uiCommandReceived=false;ipcMain.once(channel,()=>{global.uiCommandReceived=true;});},channel);
+    await button.click();
+    assert.equal(await app.evaluate(()=>global.uiCommandReceived),true,'Progress-card button must send its actual IPC command');
+  }
   const card=button.locator('..').locator('..');
   assert.equal(await card.getByRole('button',{name:'STOP',exact:true}).count(),1);
   const a=await stop.boundingBox(),b=await button.boundingBox();assert(Math.abs(a.y-b.y)<2&&Math.abs(a.height-b.height)<2);

@@ -1,5 +1,7 @@
 # Current-instance validation — 2026-11-09
 
+Historical pre-build jm.1 snapshot. Later jm.1 Windows packaging succeeded but user GPU acceptance failed. Current jm.2 scope and test limits are documented in [Enhanced-jm2.md](../Enhanced-jm2.md); actual build status must be checked on its Actions run.
+
 Prepared on Linux x64. These are observed results, not Windows/GPU certification.
 
 - TypeScript main and renderer checks passed.

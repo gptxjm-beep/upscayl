@@ -108,6 +108,9 @@ def main():
         with open(summary,'a',encoding='utf-8') as stream:
             stream.write('\n'.join(lines)+'\n')
     print(json.dumps(manifest,indent=2))
+    # Public annotation permits inspecting delivery hashes when authenticated
+    # Actions log/artifact APIs are unavailable in the review environment.
+    print('::notice title=Verified jm.2 delivery::'+json.dumps(manifest,separators=(',',':')))
 
 
 if __name__ == '__main__':
