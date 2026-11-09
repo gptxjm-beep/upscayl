@@ -13,7 +13,7 @@ type Item = { source: string; sourceHash: string; size: [number, number]; name: 
   state: 'pending' | 'completed' | 'failed' | 'committing'; outputHash?: string; error?: string };
 export type Session = { version: 1; id: string; source: string; output: string; file: string;
   modelDir: string; modelHash: string; engine: string; engineHash: string; settings: BatchUpscaylPayload;
-  settingsHash: string; phase: Phase; updated: string; items: Item[]; attempt?: string; pid?: number };
+  settingsHash: string; phase: Phase; updated: string; items: Item[]; attempt?: string; pid?: number; error?: string };
 // Avoid cached input handles preventing atomic adoption on Windows.
 sharp.cache({ files: 0 });
 const extensions = /\.(png|jpe?g|jfif|webp)$/i;
@@ -40,7 +40,7 @@ export class BatchManager extends EventEmitter {
     const s = this.session;
     return s ? { id: s.id, phase: s.phase, completed: s.items.filter(i => i.state === 'completed').length,
       total: s.items.length, failed: s.items.filter(i => i.state === 'failed').length,
-      lastError: s.items.find(i => i.error)?.error, source: s.source, output: s.output, settings: s.settings } : null;
+      lastError: s.error || s.items.find(i => i.error)?.error, source: s.source, output: s.output, settings: s.settings } : null;
   }
   discover(source?: string) {
     if (!fs.existsSync(this.registry)) return [];
@@ -144,6 +144,7 @@ export class BatchManager extends EventEmitter {
       // Delete only work directories owned by this session, never final images.
       if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt, {recursive:true,force:true});
       const pending = s.items.filter(i => i.state !== 'completed');
+      s.error=undefined;
       if(!pending.length) { s.phase='completed'; this.save(); this.cleanup(); return; }
       const attempt = path.dirname(s.file) === path.join(s.output,'.upscayl-session') ? path.join(path.dirname(s.file),'work') : path.join(s.output,'.upscayl-work');
       fs.mkdirSync(attempt,{recursive:true});
@@ -202,7 +203,7 @@ export class BatchManager extends EventEmitter {
           if(spawnError || signal || code !== 0 && code !== 2) throw new Error(spawnError || `Engine ended: ${code} ${signal || ''}`);
           if(s.items.every(i => i.state === 'completed')) { s.phase='completed'; this.save(); this.cleanup(); }
           else { const errors=s.items.some(i=>i.state==='failed'); s.phase = errors ? 'failed' : s.phase === 'pausing' ? 'paused' : 'failed'; this.save(); }
-        } catch(e) { s.phase='failed'; try { this.save(); } catch(persist) { this.emit('problem',String(persist)); } this.emit('problem',String(e)); }
+        } catch(e) { s.phase='failed'; s.error=String(e); try { this.save(); } catch(persist) { this.emit('problem',String(persist)); } this.emit('problem',String(e)); }
         finally { this.child=undefined; this.emit('settled'); }
       });
     } catch(e) { s.phase='paused'; this.save(); throw e; }

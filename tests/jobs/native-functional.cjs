@@ -24,7 +24,15 @@ async function fixture(t,count,model='upscayl-lite-4x') {
   await image.toFile(path.join(source,`${String(i).padStart(3,'0')}.${i%2?'jpg':'png'}`));
  }
  const settings={batchFolderPath:source,outputPath:folder,model,gpuId:'0',saveImageAs:'png',scale:'5',compression:'0',tileSize:32,ttaMode:false,useCustomWidth:false,customWidth:'',copyMetadata:false,noImageProcessing:false};
- const make=()=>new BatchManager(path.join(folder,'registry'),undefined,(exe,args)=>spawn(exe,args,{windowsHide:true,env:{...process.env,VK_ICD_FILENAMES:icd,VK_DRIVER_FILES:icd}}));
+ const make=()=>{
+  const manager=new BatchManager(path.join(folder,'registry'),undefined,(exe,args)=>spawn(exe,args,{windowsHide:true,env:{...process.env,VK_ICD_FILENAMES:icd,VK_DRIVER_FILES:icd}}));
+  manager.on('problem',e=>console.log('Native process problem:',String(e)));
+  manager.on('settled',()=>{if(manager.session.phase==='failed') {
+   const events=fs.readFileSync(path.join(folder,'logs','batch-'+manager.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);
+   console.log('Native failure evidence:',JSON.stringify(events.filter(e=>e.kind==='exit'||e.kind==='stderr').slice(-3)));
+  }});
+  return manager;
+ };
  return {folder,source,settings,make};
 }
 
