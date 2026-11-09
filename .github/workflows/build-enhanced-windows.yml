@@ -41,8 +41,21 @@ jobs:
       - name: Install signature-verified pinned Vulkan SDK
         run: python tools/ci-command.py --label Vulkan-SDK -- pwsh -NoProfile -File tools/install-vulkan-sdk.ps1
       - run: python tools/ci-command.py --label npm-ci -- npm ci
+      - name: Restore engine matching exact source and SDK
+        id: engine-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: resources/win/bin/upscayl-jm.exe
+          key: windows-x64-jm-${{ hashFiles('vendor/upscayl-ncnn/**', 'tools/build-enhanced-engine.py', 'tools/install-vulkan-sdk.ps1') }}
       - name: Compile modified engine
+        if: steps.engine-cache.outputs.cache-hit != 'true'
         run: python tools/ci-command.py --label native-engine -- python tools/build-enhanced-engine.py
+      - name: Retain verified-source engine for packaging retries
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: resources/win/bin/upscayl-jm.exe
+          key: ${{ steps.engine-cache.outputs.cache-primary-key }}
       - name: Compile TypeScript
         run: python tools/ci-command.py --label TypeScript -- npm run tsc
       - name: Test persistent sessions
