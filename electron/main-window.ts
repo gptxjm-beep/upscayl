@@ -62,7 +62,7 @@ const createMainWindow = () => {
           lastSaved === undefined ||
           lastSaved === "true"
         ) {
-          autoUpdater.checkForUpdates();
+          if (app.getName() !== "Upscayl Enhanced" && !app.getVersion().includes("-jm.")) autoUpdater.checkForUpdates();
         } else {
           console.log("🚀 Auto Update is disabled");
         }

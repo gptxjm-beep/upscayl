@@ -1,3 +1,4 @@
+import { jobAtom } from "@/atoms/job-atom";
 import React, { useEffect } from "react";
 import UpscaylSVGLogo from "@/components/icons/upscayl-logo-svg";
 import { useAtomValue } from "jotai";
@@ -16,6 +17,7 @@ function ProgressBar({
   batchMode: boolean;
   resetImagePaths: () => void;
 }) {
+  const job = useAtomValue(jobAtom);
   const [batchProgress, setBatchProgress] = React.useState(0);
   const t = useAtomValue(translationAtom);
   const logit = useLogger();
@@ -47,6 +49,8 @@ function ProgressBar({
   //     "--value": 0,
   //   };
   // }, [progress]);
+
+  if (job && ["running", "pausing", "paused", "failed"].includes(job.phase)) return null;
 
   return (
     <div className="absolute z-50 flex h-full w-full flex-col items-center justify-center bg-base-300/50 backdrop-blur-lg">

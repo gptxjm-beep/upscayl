@@ -55,3 +55,10 @@ main/utils/*.js
 flags.ts
 *.p12
 dockerfile
+# Enhanced development outputs
+/resources/*/bin/upscayl-jm*
+/dist-enhanced/
+/protocol-test.exe
+/renderer/tsconfig.tsbuildinfo
+
+/.test-artifacts/

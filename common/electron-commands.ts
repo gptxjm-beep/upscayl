@@ -1,4 +1,6 @@
 const ELECTRON_COMMANDS = {
+  JOB_STATE: "jm:state", JOB_PAUSE: "jm:pause", JOB_RESUME: "jm:resume",
+  JOB_GET: "jm:get", JOB_DISCOVER: "jm:discover",
   SELECT_FILE: "Select a File",
   SELECT_FOLDER: "Select a Folder",
   UPSCAYL: "Upscale the Image",

@@ -309,5 +309,6 @@
       "TITLE": "準備完了！ 🎉",
       "DESCRIPTION": "Upscaylで画像のアップスケールを始める準備ができました！"
     }
-  }
+  },
+  "SESSION": {"PAUSE": "一時停止", "PAUSING": "停止処理中...", "RESUME": "再開", "CANCEL": "キャンセル", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
 }

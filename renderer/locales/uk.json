@@ -309,5 +309,6 @@
       "TITLE": "Все готово! 🎉",
       "DESCRIPTION": "Ви готові почати покращувати зображення з Upscayl!"
     }
-  }
+  },
+  "SESSION": {"PAUSE": "Пауза", "PAUSING": "Призупинення...", "RESUME": "Продовжити", "CANCEL": "Скасувати", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
 }

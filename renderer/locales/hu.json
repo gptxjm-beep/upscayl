@@ -309,5 +309,6 @@
       "TITLE": "Minden készen áll! 🎉",
       "DESCRIPTION": "Készen állsz, hogy képeket javíts az Upscayl segítségével!"
     }
-  }
+  },
+  "SESSION": {"PAUSE": "Szünet", "PAUSING": "Szüneteltetés...", "RESUME": "Folytatás", "CANCEL": "Mégse", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
 }

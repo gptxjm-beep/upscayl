@@ -309,5 +309,6 @@
       "TITLE": "Bạn đã sẵn sàng! 🎉",
       "DESCRIPTION": "Bạn đã sẵn sàng để bắt đầu tăng cường hình ảnh với Upscayl!"
     }
-  }
+  },
+  "SESSION": {"PAUSE": "Tạm dừng", "PAUSING": "Đang tạm dừng...", "RESUME": "Tiếp tục", "CANCEL": "Hủy", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
 }

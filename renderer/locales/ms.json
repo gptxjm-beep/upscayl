@@ -309,5 +309,6 @@
       "TITLE": "Anda Sudah Bersedia! 🎉",
       "DESCRIPTION": "Anda sudah bersedia untuk mula meningkatkan saiz imej dengan Upscayl!"
     }
-  }
+  },
+  "SESSION": {"PAUSE": "Jeda", "PAUSING": "Menjeda...", "RESUME": "Sambung", "CANCEL": "Batal", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
 }

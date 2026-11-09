@@ -1,3 +1,4 @@
+import { registerJobs, startBatch, offerRecovery } from "./jobs/integration";
 import prepareNext from "electron-next";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
@@ -21,6 +22,15 @@ import { FEATURE_FLAGS } from "../common/feature-flags";
 import settings from "electron-settings";
 import pasteImage from "./commands/paste-image";
 import path from "path";
+
+app.setName("Upscayl Enhanced");
+app.setPath("userData", !app.isPackaged && process.env.UPSCAYL_TEST_USER_DATA ? process.env.UPSCAYL_TEST_USER_DATA : path.join(app.getPath("appData"), "Upscayl Enhanced"));
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on("second-instance", () => {
+  const windows = require("electron").BrowserWindow.getAllWindows();
+  if (windows[0]) { windows[0].restore(); windows[0].focus(); }
+});
+registerJobs();
 
 // INITIALIZATION
 log.initialize({ preload: true });
@@ -47,6 +57,7 @@ app.on("ready", async () => {
   });
 
   createMainWindow();
+  setTimeout(() => { void offerRecovery(); }, 2500);
 
   log.info(
     "🆙 Upscayl version:",
@@ -98,7 +109,7 @@ ipcMain.handle(
 
 ipcMain.on(ELECTRON_COMMANDS.UPSCAYL, imageUpscayl);
 
-ipcMain.on(ELECTRON_COMMANDS.FOLDER_UPSCAYL, batchUpscayl);
+ipcMain.on(ELECTRON_COMMANDS.FOLDER_UPSCAYL, startBatch);
 
 ipcMain.on(ELECTRON_COMMANDS.DOUBLE_UPSCAYL, doubleUpscayl);
 

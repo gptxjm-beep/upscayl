@@ -309,5 +309,6 @@
       "TITLE": "Hazır ve nazırsınız! 🎉",
       "DESCRIPTION": "Upscayl ile görsellerinizi iyileştirmeye hazırsınız!"
     }
-  }
+  },
+  "SESSION": {"PAUSE": "Duraklat", "PAUSING": "Duraklatılıyor...", "RESUME": "Devam et", "CANCEL": "İptal", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
 }

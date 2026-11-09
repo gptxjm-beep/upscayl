@@ -71,6 +71,7 @@ const Home = () => {
     if (path !== null) {
       logit("🖼 Selected Folder Path: ", path);
       setBatchFolderPath(path);
+      void window.electron.invoke(ELECTRON_COMMANDS.JOB_DISCOVER, path);
       if (!rememberOutputFolder) {
         setOutputPath(path);
       }

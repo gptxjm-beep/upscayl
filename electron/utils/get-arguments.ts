@@ -1,7 +1,6 @@
 import getModelScale from "../../common/check-model-scale";
-import { getPlatform } from "./get-device-specs";
 import { ImageFormat } from "../types/types";
-const slash: string = getPlatform() === "win" ? "\\" : "/";
+const slash: string = process.platform === "win32" ? "\\" : "/";
 
 export const getSingleImageArguments = ({
   inputDir,
