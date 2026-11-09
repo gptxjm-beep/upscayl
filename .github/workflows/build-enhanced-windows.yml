@@ -48,18 +48,19 @@ jobs:
       - run: python tools/ci-command.py --label npm-ci -- npm ci
       - name: Compile modified engine
         run: python tools/ci-command.py --label native-engine -- python tools/build-enhanced-engine.py
-      - name: Compile and test sessions
-        run: |
-          python tools/ci-command.py --label TypeScript -- npm run tsc
-          python tools/ci-command.py --label sessions -- node --test tests/jobs/session.test.cjs
+      - name: Compile TypeScript
+        run: python tools/ci-command.py --label TypeScript -- npm run tsc
+      - name: Test persistent sessions
+        run: python tools/ci-command.py --label sessions -- node --test tests/jobs/session.test.cjs
       - name: Test native admission and drain protocol
         shell: cmd
         run: cl /std:c++17 /utf-8 /EHsc tests\jobs\protocol.cpp /Fe:protocol-test.exe && protocol-test.exe
-      - name: Build renderer and Windows packages
-        run: |
-          python tools/ci-command.py --label renderer -- npm run build
-          python tools/ci-command.py --label Electron-smoke -- node tests/jobs/ui.smoke.cjs
-          python tools/ci-command.py --label packaging -- npx electron-builder --win --x64 --config tools/enhanced-builder.cjs --publish never
+      - name: Build renderer
+        run: python tools/ci-command.py --label renderer -- npm run build
+      - name: Smoke test Electron UI
+        run: python tools/ci-command.py --label Electron-smoke -- node tests/jobs/ui.smoke.cjs
+      - name: Package Windows installer and portable ZIP
+        run: python tools/ci-command.py --label packaging -- npx electron-builder --win --x64 --config tools/enhanced-builder.cjs --publish never
       - name: Verify installer and ZIP payloads and compute delivery checksums
         run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
       - uses: actions/upload-artifact@v4
