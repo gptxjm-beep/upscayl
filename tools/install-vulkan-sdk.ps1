@@ -1,8 +1,15 @@
 $ErrorActionPreference = 'Stop'
-$version = '1.3.280.0'
+$version = '1.4.304.1'
 $sdk = "C:\VulkanSDK\$version"
-$installer = Join-Path $env:RUNNER_TEMP "VulkanSDK-$version-Installer.exe"
-$url = "https://sdk.lunarg.com/sdk/download/$version/windows/VulkanSDK-$version-Installer.exe"
+$installer = Join-Path $env:RUNNER_TEMP "vulkansdk-windows-X64-$version.exe"
+$url = "https://sdk.lunarg.com/sdk/download/$version/windows/vulkansdk-windows-X64-$version.exe?Human=true"
+# Log authoritative metadata to diagnose archive availability without guessing paths.
+try {
+    $metadata = Invoke-RestMethod -Uri 'https://vulkan.lunarg.com/sdk/latest/windows.json'
+    $metadataText = $metadata | ConvertTo-Json -Compress
+    Write-Output "Official SDK metadata: $metadataText"
+} catch { Write-Output "SDK metadata unavailable: $_" }
+Write-Output "Pinned SDK download: $url"
 Invoke-WebRequest -Uri $url -OutFile $installer
 $signature = Get-AuthenticodeSignature -FilePath $installer
 if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'LunarG') {
