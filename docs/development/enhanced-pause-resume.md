@@ -45,7 +45,7 @@ After these source changes are reviewed and made available in the GitHub branch,
 
 Artifacts are named `Upscayl-Enhanced-2.15.0-jm.1-Windows-x64`, with checksums. Download them from the actual completed Actions run; no fabricated URL is provided.
 
-Local Windows equivalent after installing Vulkan SDK 1.3.280.0, CMake 3.31, MSVC x64, Node 18.20.5, Python and Git:
+Local Windows equivalent after installing Vulkan SDK 1.4.363.1, CMake 3.31, MSVC x64, Node 18.20.5, Python and Git:
 
 ```powershell
 npm ci
