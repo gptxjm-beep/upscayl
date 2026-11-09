@@ -25,7 +25,7 @@ The native functional tests force Electron's bundled SwiftShader ICD for child p
 
 ## Windows acceptance
 
-On Windows, functional tests copy each tested EXE and its runtime DLLs into a private temporary directory with Electron's SwiftShader DLL aliased as `vulkan-1.dll` (SwiftShader's direct-link mode). This avoids the SDK 1.4 loader/older NCNN API-version negotiation in the CPU-only runner. The software DLL is never put in production resources or the installer/ZIP. The real-GPU application continues to use the user's Vulkan runtime.
+On Windows, functional tests copy each tested EXE and its runtime DLLs into a private temporary directory with Electron's SwiftShader DLL aliased as `vulkan-1.dll` (SwiftShader's direct-link mode). This avoids the SDK 1.4 loader/older NCNN API-version negotiation in the CPU-only runner. The test alias is never added to `resources/bin` or used by production batch processing; Electron retains its normal bundled graphics files. The real-GPU application continues to use the user's Vulkan runtime.
 
 Install to the separate Upscayl Enhanced location, or extract Portable ZIP to a new folder. Keep the original Upscayl installation. Enhanced uses a separate application ID and user-data folder and disables its upstream updater. This is an unsigned test build, not an official release.
 
