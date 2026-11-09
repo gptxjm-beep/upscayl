@@ -25,6 +25,8 @@ The native functional tests force Electron's bundled SwiftShader ICD for child p
 
 ## Windows acceptance
 
+On Windows, functional tests copy each tested EXE and its runtime DLLs into a private temporary directory with Electron's SwiftShader DLL aliased as `vulkan-1.dll` (SwiftShader's direct-link mode). This avoids the SDK 1.4 loader/older NCNN API-version negotiation in the CPU-only runner. The software DLL is never put in production resources or the installer/ZIP. The real-GPU application continues to use the user's Vulkan runtime.
+
 Install to the separate Upscayl Enhanced location, or extract Portable ZIP to a new folder. Keep the original Upscayl installation. Enhanced uses a separate application ID and user-data folder and disables its upstream updater. This is an unsigned test build, not an official release.
 
 On the RTX 3060 Ti, test six mixed JPG/PNG images with High Fidelity at 5x, including paths with spaces, Arabic and `%!`. Verify the center STOP/PAUSE row, Pausing → Paused, repeated Pause, Resume, STOP, Settings navigation, closing/reopening after Pause and unchanged completed-image timestamps. Check Single and Double separately. Report the exact settings and share the batch log if inference fails. Test larger/long pages only after the small batch passes. No performance or real-GPU claims follow from the CI status.

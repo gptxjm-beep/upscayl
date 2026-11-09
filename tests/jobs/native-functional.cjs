@@ -25,7 +25,20 @@ async function fixture(t,count,model='upscayl-lite-4x') {
  }
  const settings={batchFolderPath:source,outputPath:folder,model,gpuId:'0',saveImageAs:'png',scale:'5',compression:'0',tileSize:32,ttaMode:false,useCustomWidth:false,customWidth:'',copyMetadata:false,noImageProcessing:false};
  const make=()=>{
-  const manager=new BatchManager(path.join(folder,'registry'),undefined,(exe,args)=>spawn(exe,args,{windowsHide:true,env:{...process.env,VK_ICD_FILENAMES:icd,VK_DRIVER_FILES:icd}}));
+  const manager=new BatchManager(path.join(folder,'registry'),undefined,(exe,args)=>{
+   let executable=exe;
+   if(win) {
+    // SwiftShader supports direct linking as vulkan-1.dll. Keep this alias in
+    // an isolated test-only executable directory: the SDK 1.4 loader asks this
+    // older NCNN to request a version its bundled SwiftShader ICD rejects.
+    // Neither the production engine directory nor the delivery is modified.
+    const runtime=fs.mkdtempSync(path.join(folder,'software-vulkan-'));
+    executable=path.join(runtime,path.basename(exe));fs.copyFileSync(exe,executable);
+    for(const name of fs.readdirSync(path.dirname(exe)))if(name.endsWith('.dll'))fs.copyFileSync(path.join(path.dirname(exe),name),path.join(runtime,name));
+    fs.copyFileSync(path.join(root,'node_modules/electron/dist/vk_swiftshader.dll'),path.join(runtime,'vulkan-1.dll'));
+   }
+   return spawn(executable,args,{windowsHide:true,env:{...process.env,VK_ICD_FILENAMES:icd,VK_DRIVER_FILES:icd}});
+  });
   manager.on('problem',e=>console.log('Native process problem:',String(e)));
   manager.on('settled',()=>{if(manager.session.phase==='failed') {
    const events=fs.readFileSync(path.join(folder,'logs','batch-'+manager.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);
