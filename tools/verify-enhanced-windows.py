@@ -53,9 +53,9 @@ const path=require('path');
 const file=process.argv[1];
 const read=n=>asar.extractFile(file,path.normalize(n)).toString();
 const pkg=JSON.parse(read('package.json'));
-if(pkg.version!=='2.15.0-jm.1'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(pkg.version!=='2.15.0-jm.2'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
 if(!read('export/electron/jobs/integration.js').includes('upscayl-jm.exe'))throw Error('Wrong engine route');
-if(!read('export/electron/jobs/manager.js').includes('@JM1'))throw Error('Session protocol absent');
+if(!read('export/electron/jobs/manager.js').includes('@JM'))throw Error('Session protocol absent');
 if(!read('export/electron/main-window.js').includes('Upscayl Enhanced'))throw Error('Updater guard absent');
 if(!read('export/electron/index.js').includes('Upscayl Enhanced'))throw Error('User data isolation absent');
 if(!read('export/electron/index.js').includes('integration_1.startBatch'))throw Error('Batch handler not connected to enhanced engine');
@@ -90,7 +90,7 @@ def main():
         subprocess.run([seven, 'x', str(archives[0]), '-o' + str(unpacked), '-y', '-bb0'], check=True)
         installer_check = verify_tree(unpacked, engine_hash)
         assert portable_check['asar_sha256'] == installer_check['asar_sha256'], 'Installer/ZIP app differs'
-    manifest = {'version': '2.15.0-jm.1', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    manifest = {'version': '2.15.0-jm.2', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                 'portable_payload': portable_check, 'installer_payload': installer_check,
                 'gpu_inference_tested': False,
                 'files': [{'name':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in installers + portable]}

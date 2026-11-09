@@ -310,5 +310,5 @@
       "DESCRIPTION": "Upscayl ile görsellerinizi iyileştirmeye hazırsınız!"
     }
   },
-  "SESSION": {"PAUSE": "Duraklat", "PAUSING": "Duraklatılıyor...", "RESUME": "Devam et", "CANCEL": "İptal", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
+  "SESSION": {"PAUSE": "Duraklat", "PAUSING": "Duraklatılıyor...", "RESUME": "Devam et", "CANCEL": "İptal", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

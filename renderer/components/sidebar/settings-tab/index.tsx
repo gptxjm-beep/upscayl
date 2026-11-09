@@ -1,3 +1,4 @@
+import useUpscaylVersion from "@/components/hooks/use-upscayl-version";
 import SelectTheme from "./select-theme";
 import { SaveOutputFolderToggle } from "./save-output-folder-toggle";
 import { InputGpuId } from "./input-gpu-id";
@@ -103,9 +104,7 @@ function SettingsTab({
     }
   };
 
-  const upscaylVersion = navigator?.userAgent?.match(
-    /Upscayl\/([\d\.]+\d+)/,
-  )[1];
+  const upscaylVersion = useUpscaylVersion();
 
   function disableScrolling() {
     if (timeoutId !== null) {

@@ -1,5 +1,3 @@
-import JobControls from "./job-controls";
-import { jobAtom } from "@/atoms/job-atom";
 import { useAtom, useAtomValue } from "jotai";
 import React, { useEffect, useMemo } from "react";
 import { Tooltip } from "react-tooltip";
@@ -49,8 +47,6 @@ function UpscaylSteps({
   setDoubleUpscayl,
   dimensions,
 }: IProps) {
-  const job = useAtomValue(jobAtom);
-  const jobBusy = job && ["running", "pausing", "paused", "failed"].includes(job.phase);
   const [scale, setScale] = useAtom(scaleAtom);
   const [outputPath, setOutputPath] = useAtom(savedOutputPathAtom);
   const [progress, setProgress] = useAtom(progressAtom);
@@ -256,10 +252,8 @@ function UpscaylSteps({
             </span>
           </p>
         )}
-        <div className="flex items-start gap-2">
         <button
-          disabled={!!jobBusy}
-          className="btn btn-secondary min-w-0 flex-1"
+          className="btn btn-secondary"
           onClick={
             progress.length > 0 || !outputPath
               ? () =>
@@ -275,8 +269,6 @@ function UpscaylSteps({
             ? t("APP.SCALE_SELECTION.IN_PROGRESS_BUTTON_TITLE")
             : t("APP.SCALE_SELECTION.START_BUTTON_TITLE")}
         </button>
-        <JobControls />
-        </div>
       </div>
     </div>
   );

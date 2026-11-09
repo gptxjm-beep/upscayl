@@ -62,6 +62,11 @@ test('restart recovery rejects model/source change and repairs corrupt output wi
 test('failed image retains journal; Cancel retains successful files and recoverable session',async t=>{
  const f=await fixture(t,12,true);const m=f.make();const stop=settled(m);await m.create(f.settings,f.models,fake);await stop;
  assert.equal(m.session.phase,'failed');assert(fs.existsSync(m.session.file));assert(m.session.items.some(i=>i.state==='failed'));
+ assert.match(m.snapshot().lastError,/failed during decode \(code -1\)/);
+ const logs=fs.readFileSync(path.join(f.root,'logs','batch-'+m.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);
+ assert(logs.some(e=>e.kind==='stderr'&&e.data.includes('HRESULT=0x80004005')));
+ assert(logs.some(e=>e.kind==='image'&&e.data.stage==='decode'&&e.data.source.endsWith('-fail.png')));
+ assert(logs.some(e=>e.kind==='exit'&&e.data.code===2));
  const scale=m.session.settings.scale;m.session.settings.scale='3';
  await assert.rejects(()=>m.resume(),/settings changed/);m.session.settings.scale=scale;
  const failed=m.session.items.find(i=>i.state==='failed');fs.writeFileSync(failed.source,'changed');

@@ -49,7 +49,7 @@ export async function offerRecovery(source?:string) {
       });
       if(choice.response === 0) { await batchManager().restore(session.id); return; }
       if(choice.response === 1) {
-        // Create a fresh UUID/output directory; retain the previous record and images.
+        // Create a fresh session and numbered output directory; retain prior images.
         await batchManager().restart(session.id); return;
       }
       return; // Cancel closes recovery without touching records or offering another dialog.

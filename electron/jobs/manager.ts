@@ -60,7 +60,10 @@ export class BatchManager extends EventEmitter {
     try {
       const id = crypto.randomUUID();
       const source = path.resolve(settings.batchFolderPath);
-      const output = path.join(path.resolve(settings.outputPath), `upscayl_${id}`);
+      const baseName=`upscayl_${settings.saveImageAs}_${settings.model}_${settings.useCustomWidth ? settings.customWidth+'px' : settings.scale+'x'}`;
+      const base=path.join(path.resolve(settings.outputPath),baseName);
+      let output=base, suffix=2;
+      while(fs.existsSync(output)) output=base+'_'+suffix++;
       const names = fs.readdirSync(source).filter(n => extensions.test(n) && fs.lstatSync(path.join(source,n)).isFile()).sort();
       if (!names.length) throw new Error('No supported images in selected folder.');
       const items: Item[] = [];
@@ -69,7 +72,13 @@ export class BatchManager extends EventEmitter {
         const input = path.join(source,name);
         const info = await sharp(input, { failOn: 'warning', limitInputPixels: false }).metadata().catch(() => ({width:0,height:0}));
         items.push({ source: input, sourceHash: await hash(input), size: [info.width || 0,info.height || 0],
-          name: `${String(items.length).padStart(6,'0')}_${path.parse(name).name}.${settings.saveImageAs}`, state: 'pending' });
+          name: `${path.parse(name).name}.${settings.saveImageAs}`, state: 'pending' });
+      }
+      const used=new Set<string>();
+      for(const item of items) {
+        const parsed=path.parse(item.name);let candidate=item.name,n=2;
+        while(used.has(candidate.toLowerCase())) candidate=parsed.name+'_'+(n++)+parsed.ext;
+        item.name=candidate;used.add(candidate.toLowerCase());
       }
       if(this.cancelRequested) throw new Error('Batch preparation cancelled');
       fs.mkdirSync(output, { recursive: true });
@@ -126,29 +135,36 @@ export class BatchManager extends EventEmitter {
       }
       for(const i of s.items) {
         if(i.state !== 'completed' && fs.existsSync(path.join(s.output,i.name))) {
-          const parts=path.parse(i.name); i.name=parts.name+'_retry_'+crypto.randomUUID()+parts.ext;
+          const parts=path.parse(i.name);let n=2,candidate='';
+          do {candidate=parts.name+'_retry_'+(n++)+parts.ext;} while(fs.existsSync(path.join(s.output,candidate)) || s.items.some(other=>other!==i && other.name.toLowerCase()===candidate.toLowerCase()));
+          i.name=candidate;
         }
       }
       if(this.cancelRequested) { s.phase='cancelled'; this.save(); return; }
       // Delete only work directories owned by this session, never final images.
-      if(s.attempt && path.dirname(s.attempt) === s.output && path.basename(s.attempt).startsWith('.upscayl-work-')) fs.rmSync(s.attempt, {recursive:true,force:true});
+      if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt, {recursive:true,force:true});
       const pending = s.items.filter(i => i.state !== 'completed');
       if(!pending.length) { s.phase='completed'; this.save(); this.cleanup(); return; }
-      const attempt = path.join(s.output,'.upscayl-work-'+crypto.randomUUID());
-      fs.mkdirSync(attempt);
+      const attempt = path.dirname(s.file) === path.join(s.output,'.upscayl-session') ? path.join(path.dirname(s.file),'work') : path.join(s.output,'.upscayl-work');
+      fs.mkdirSync(attempt,{recursive:true});
       this.control = attempt; s.attempt = attempt;
       fs.writeFileSync(path.join(attempt,'lease'),'1');
       const manifest = pending.map(i => Buffer.from(i.source).toString('hex')+'\t'+Buffer.from(path.join(attempt,i.name)).toString('hex')).join('\n')+'\n';
       fs.writeFileSync(path.join(attempt,'manifest'),manifest);
-      s.phase = 'running'; this.save();
+      s.phase = 'running';
+      for(const item of pending) {item.state='pending';item.error=undefined;}
+      this.save();
       const options = s.settings;
       const args = getBatchArguments({ inputDir:s.source, outputDir:attempt, modelsPath:s.modelDir,
         model:options.model, gpuId:options.gpuId, saveImageAs:options.saveImageAs,
         scale:options.scale, customWidth:options.useCustomWidth ? options.customWidth : '',
         compression:options.compression, tileSize:options.tileSize, ttaMode:options.ttaMode });
-      const child = this.launch(s.engine,[...args.filter(Boolean),'-L',path.join(attempt,'manifest'),'-Q',attempt]);
+      const command=[...args.filter(Boolean),'-L',path.join(attempt,'manifest'),'-Q',attempt];
+      this.log('start',{engine:s.engine,args:command,inputs:pending.map((i,id)=>({id,source:i.source})),modelHash:s.modelHash});
+      const child = this.launch(s.engine,command);
       this.child = child; s.pid = child.pid; this.save();
       const lease = setInterval(() => { try { fs.utimesSync(path.join(attempt,'lease'),new Date(),new Date()); } catch {} },2000);
+      let stderrTail='';
       let buffered = ''; const seen = new Set<number>();
       this.finishing = Promise.resolve();
       child.stdout.on('data',data => {
@@ -156,33 +172,36 @@ export class BatchManager extends EventEmitter {
         let end;
         while((end = buffered.indexOf('\n')) >= 0) {
           const line = buffered.slice(0,end).trim(); buffered=buffered.slice(end+1);
-          const match = /^@JM1 (\d+) ([01])$/.exec(line);
+          const match = /^@JM([12]) (\d+) ([01])(?: ([a-z]+) (-?\d+))?$/.exec(line);
           if(!match) continue;
-          const index=Number(match[1]);
+          const index=Number(match[2]);
           if(!pending[index] || seen.has(index)) continue;
           seen.add(index);
           this.finishing = this.finishing.then(async () => {
             const item = pending[index];
             try {
-              if(match[2] !== '1') throw new Error('Engine reported image failure');
+              this.log('image',{id:index,source:item.source,ok:match[3]==='1',stage:match[4] || 'legacy',code:match[5],stderr:stderrTail});
+              if(match[3] !== '1') throw new Error(`Image ${path.basename(item.source)} failed during ${match[4] || 'processing'} (code ${match[5] || 'unknown'}). ${stderrTail.slice(-1200)}`);
               await this.commit(item,path.join(attempt,item.name));
             } catch(e) { item.state='failed'; item.error=String(e); this.save(); }
           }).catch(e => { this.emit('problem',String(e)); this.pause(); });
         }
       });
-      child.stderr.on('data',data => this.emit('log',data.toString()));
+      child.stderr.on('data',data => {stderrTail=(stderrTail+data.toString()).slice(-16384);this.log('stderr',data.toString());this.emit('log',data.toString());});
       let spawnError = '';
       child.on('error',e => { spawnError=String(e); });
       child.on('close',async (code,signal) => {
         clearInterval(lease);
+        this.log('exit',{code,signal,error:spawnError});
         try {
           await this.finishing;
           this.child=undefined; s.pid=undefined;
+          if(this.control) {fs.rmSync(this.control,{recursive:true,force:true});this.control=undefined;s.attempt=undefined;}
           if(s.phase === 'cancelled') { this.save(); return; }
           // A per-file success event is emitted only after the encoder completes.
           if(spawnError || signal || code !== 0 && code !== 2) throw new Error(spawnError || `Engine ended: ${code} ${signal || ''}`);
           if(s.items.every(i => i.state === 'completed')) { s.phase='completed'; this.save(); this.cleanup(); }
-          else { s.phase = s.phase === 'pausing' ? 'paused' : 'failed'; this.save(); }
+          else { const errors=s.items.some(i=>i.state==='failed'); s.phase = errors ? 'failed' : s.phase === 'pausing' ? 'paused' : 'failed'; this.save(); }
         } catch(e) { s.phase='failed'; try { this.save(); } catch(persist) { this.emit('problem',String(persist)); } this.emit('problem',String(e)); }
         finally { this.child=undefined; this.emit('settled'); }
       });
@@ -221,6 +240,7 @@ export class BatchManager extends EventEmitter {
     s.phase='pausing'; this.save();
   }
   cancel() {
+    if(!this.busy && !this.child && (!this.session || ['completed','cancelled'].includes(this.session.phase))) return;
     this.cancelRequested=true;
     if(!this.session) { this.emit('state',null); return; }
     this.session.phase='cancelled'; this.save(); this.child?.kill();
@@ -230,10 +250,20 @@ export class BatchManager extends EventEmitter {
     while(this.busy) await new Promise(resolve => setTimeout(resolve,25));
     if(this.child) { this.pause(); await new Promise<void>(resolve => this.once('settled',resolve)); }
   }
+  private ownsWork(folder:string,s:Session) {
+    return folder === path.join(s.output,'.upscayl-session','work') || folder === path.join(s.output,'.upscayl-work') || path.dirname(folder) === s.output && path.basename(folder).startsWith('.upscayl-work-');
+  }
+  private log(kind:string,data:unknown) {
+    const s=this.session;if(!s)return;
+    try {
+      const folder=path.join(path.dirname(this.registry),'logs');fs.mkdirSync(folder,{recursive:true});
+      fs.appendFileSync(path.join(folder,'batch-'+s.id+'.log'),JSON.stringify({at:new Date().toISOString(),job:s.id,kind,data})+'\n','utf8');
+    } catch(error) { this.emit('problem','Cannot write batch diagnostic log: '+String(error)); }
+  }
   private cleanup() {
     const s=this.session!;
     if(!s.items.every(i => i.state === 'completed')) return;
-    if(s.attempt && path.dirname(s.attempt) === s.output && path.basename(s.attempt).startsWith('.upscayl-work-')) fs.rmSync(s.attempt,{recursive:true,force:true});
+    if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt,{recursive:true,force:true});
     for(const suffix of ['', '.bak','.new','.bak.new']) {
       fs.rmSync(s.file+suffix,{force:true});
       fs.rmSync(path.join(this.registry,s.id+'.json')+suffix,{force:true});

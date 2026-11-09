@@ -3,9 +3,21 @@
 
 // image decoder and encoder with WIC
 #include <wincodec.h>
+#include <cstdio>
+
+// COM is initialized per calling thread, including OpenMP load and save workers.
+struct JmWicApartment {
+    HRESULT status;
+    JmWicApartment() : status(CoInitializeEx(nullptr, COINIT_MULTITHREADED)) {}
+    ~JmWicApartment() { if(SUCCEEDED(status)) CoUninitialize(); }
+    bool ready() const { return SUCCEEDED(status) || status == RPC_E_CHANGED_MODE; }
+};
+#define JM_WIC_CHECK(expression) do { HRESULT jm_hr = (expression); if(FAILED(jm_hr)) { fprintf(stderr, "[WIC] %s HRESULT=0x%08lx\n", #expression, static_cast<unsigned long>(jm_hr)); goto RETURN; } } while(0)
 
 unsigned char *wic_decode_image(const wchar_t *filepath, int *w, int *h, int *c)
 {
+    JmWicApartment apartment;
+    if(!apartment.ready()) { fprintf(stderr, "[WIC] CoInitializeEx HRESULT=0x%08lx\n", static_cast<unsigned long>(apartment.status)); return nullptr; }
     IWICImagingFactory *factory = 0;
     IWICBitmapDecoder *decoder = 0;
     IWICBitmapFrameDecode *frame = 0;
@@ -25,14 +37,11 @@ unsigned char *wic_decode_image(const wchar_t *filepath, int *w, int *h, int *c)
     int stride = 0;
     unsigned char *bgrdata = 0;
 
-    if (CoCreateInstance(CLSID_WICImagingFactory1, 0, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)))
-        goto RETURN;
+    JM_WIC_CHECK(CoCreateInstance(CLSID_WICImagingFactory1, 0, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
 
-    if (factory->CreateDecoderFromFilename(filepath, 0, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateDecoderFromFilename(filepath, 0, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder));
 
-    if (factory->CreatePalette(&palette))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreatePalette(&palette));
 
     if (decoder->CopyPalette(palette) == S_OK)
     {
@@ -40,8 +49,7 @@ unsigned char *wic_decode_image(const wchar_t *filepath, int *w, int *h, int *c)
             goto RETURN;
     }
 
-    if (decoder->GetFrame(0, &frame))
-        goto RETURN;
+    JM_WIC_CHECK(decoder->GetFrame(0, &frame));
 
     if (frame->CopyPalette(palette) == S_OK)
     {
@@ -49,11 +57,9 @@ unsigned char *wic_decode_image(const wchar_t *filepath, int *w, int *h, int *c)
             goto RETURN;
     }
 
-    if (factory->CreateFormatConverter(&converter))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateFormatConverter(&converter));
 
-    if (frame->GetPixelFormat(&pixel_format))
-        goto RETURN;
+    JM_WIC_CHECK(frame->GetPixelFormat(&pixel_format));
 
     if (!IsEqualGUID(pixel_format, GUID_WICPixelFormat32bppBGRA))
         pixel_format = GUID_WICPixelFormat24bppBGR;
@@ -63,25 +69,19 @@ unsigned char *wic_decode_image(const wchar_t *filepath, int *w, int *h, int *c)
 
     channels = IsEqualGUID(pixel_format, GUID_WICPixelFormat32bppBGRA) ? 4 : 3;
 
-    if (converter->Initialize(frame, pixel_format, WICBitmapDitherTypeNone, 0, 0.0, WICBitmapPaletteTypeCustom))
-        goto RETURN;
+    JM_WIC_CHECK(converter->Initialize(frame, pixel_format, WICBitmapDitherTypeNone, 0, 0.0, WICBitmapPaletteTypeCustom));
 
-    if (factory->CreateBitmapFromSource(converter, WICBitmapCacheOnDemand, &bitmap))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateBitmapFromSource(converter, WICBitmapCacheOnDemand, &bitmap));
 
-    if (bitmap->GetSize((UINT *)&width, (UINT *)&height))
-        goto RETURN;
+    JM_WIC_CHECK(bitmap->GetSize((UINT *)&width, (UINT *)&height));
 
     rect.Width = width;
     rect.Height = height;
-    if (bitmap->Lock(&rect, WICBitmapLockRead, &lock))
-        goto RETURN;
+    JM_WIC_CHECK(bitmap->Lock(&rect, WICBitmapLockRead, &lock));
 
-    if (lock->GetDataPointer(&datasize, &data))
-        goto RETURN;
+    JM_WIC_CHECK(lock->GetDataPointer(&datasize, &data));
 
-    if (lock->GetStride((UINT *)&stride))
-        goto RETURN;
+    JM_WIC_CHECK(lock->GetStride((UINT *)&stride));
 
     bgrdata = (unsigned char *)malloc(width * height * channels);
     if (!bgrdata)
@@ -119,6 +119,8 @@ RETURN:
 
 int wic_encode_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata)
 {
+    JmWicApartment apartment;
+    if(!apartment.ready()) { fprintf(stderr, "[WIC] CoInitializeEx HRESULT=0x%08lx\n", static_cast<unsigned long>(apartment.status)); return 0; }
     IWICImagingFactory *factory = 0;
     IWICStream *stream = 0;
     IWICBitmapEncoder *encoder = 0;
@@ -128,32 +130,23 @@ int wic_encode_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata
     unsigned char *data = 0;
     int ret = 0;
 
-    if (CoCreateInstance(CLSID_WICImagingFactory1, 0, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)))
-        goto RETURN;
+    JM_WIC_CHECK(CoCreateInstance(CLSID_WICImagingFactory1, 0, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
 
-    if (factory->CreateStream(&stream))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateStream(&stream));
 
-    if (stream->InitializeFromFilename(filepath, GENERIC_WRITE))
-        goto RETURN;
+    JM_WIC_CHECK(stream->InitializeFromFilename(filepath, GENERIC_WRITE));
 
-    if (factory->CreateEncoder(GUID_ContainerFormatPng, 0, &encoder))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateEncoder(GUID_ContainerFormatPng, 0, &encoder));
 
-    if (encoder->Initialize(stream, WICBitmapEncoderNoCache))
-        goto RETURN;
+    JM_WIC_CHECK(encoder->Initialize(stream, WICBitmapEncoderNoCache));
 
-    if (encoder->CreateNewFrame(&frame, 0))
-        goto RETURN;
+    JM_WIC_CHECK(encoder->CreateNewFrame(&frame, 0));
 
-    if (frame->Initialize(0))
-        goto RETURN;
+    JM_WIC_CHECK(frame->Initialize(0));
 
-    if (frame->SetSize((UINT)w, (UINT)h))
-        goto RETURN;
+    JM_WIC_CHECK(frame->SetSize((UINT)w, (UINT)h));
 
-    if (frame->SetPixelFormat(&format))
-        goto RETURN;
+    JM_WIC_CHECK(frame->SetPixelFormat(&format));
 
     if (!IsEqualGUID(format, c == 4 ? GUID_WICPixelFormat32bppBGRA : GUID_WICPixelFormat24bppBGR))
         goto RETURN;
@@ -169,14 +162,11 @@ int wic_encode_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata
         memcpy(ptr, bgrptr, w * c);
     }
 
-    if (frame->WritePixels(h, stride, h * stride, data))
-        goto RETURN;
+    JM_WIC_CHECK(frame->WritePixels(h, stride, h * stride, data));
 
-    if (frame->Commit())
-        goto RETURN;
+    JM_WIC_CHECK(frame->Commit());
 
-    if (encoder->Commit())
-        goto RETURN;
+    JM_WIC_CHECK(encoder->Commit());
 
     ret = 1;
 
@@ -197,6 +187,8 @@ RETURN:
 
 int wic_encode_jpeg_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata)
 {
+    JmWicApartment apartment;
+    if(!apartment.ready()) { fprintf(stderr, "[WIC] CoInitializeEx HRESULT=0x%08lx\n", static_cast<unsigned long>(apartment.status)); return 0; }
     // assert c == 3
 
     IWICImagingFactory *factory = 0;
@@ -216,35 +208,25 @@ int wic_encode_jpeg_image(const wchar_t *filepath, int w, int h, int c, void *bg
     varValue.vt = VT_R4;
     varValue.fltVal = 1.0f;
 
-    if (CoCreateInstance(CLSID_WICImagingFactory1, 0, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)))
-        goto RETURN;
+    JM_WIC_CHECK(CoCreateInstance(CLSID_WICImagingFactory1, 0, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
 
-    if (factory->CreateStream(&stream))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateStream(&stream));
 
-    if (stream->InitializeFromFilename(filepath, GENERIC_WRITE))
-        goto RETURN;
+    JM_WIC_CHECK(stream->InitializeFromFilename(filepath, GENERIC_WRITE));
 
-    if (factory->CreateEncoder(GUID_ContainerFormatJpeg, 0, &encoder))
-        goto RETURN;
+    JM_WIC_CHECK(factory->CreateEncoder(GUID_ContainerFormatJpeg, 0, &encoder));
 
-    if (encoder->Initialize(stream, WICBitmapEncoderNoCache))
-        goto RETURN;
+    JM_WIC_CHECK(encoder->Initialize(stream, WICBitmapEncoderNoCache));
 
-    if (encoder->CreateNewFrame(&frame, &propertybag))
-        goto RETURN;
+    JM_WIC_CHECK(encoder->CreateNewFrame(&frame, &propertybag));
 
-    if (propertybag->Write(1, &option, &varValue))
-        goto RETURN;
+    JM_WIC_CHECK(propertybag->Write(1, &option, &varValue));
 
-    if (frame->Initialize(propertybag))
-        goto RETURN;
+    JM_WIC_CHECK(frame->Initialize(propertybag));
 
-    if (frame->SetSize((UINT)w, (UINT)h))
-        goto RETURN;
+    JM_WIC_CHECK(frame->SetSize((UINT)w, (UINT)h));
 
-    if (frame->SetPixelFormat(&format))
-        goto RETURN;
+    JM_WIC_CHECK(frame->SetPixelFormat(&format));
 
     if (!IsEqualGUID(format, GUID_WICPixelFormat24bppBGR))
         goto RETURN;
@@ -260,14 +242,11 @@ int wic_encode_jpeg_image(const wchar_t *filepath, int w, int h, int c, void *bg
         memcpy(ptr, bgrptr, w * c);
     }
 
-    if (frame->WritePixels(h, stride, h * stride, data))
-        goto RETURN;
+    JM_WIC_CHECK(frame->WritePixels(h, stride, h * stride, data));
 
-    if (frame->Commit())
-        goto RETURN;
+    JM_WIC_CHECK(frame->Commit());
 
-    if (encoder->Commit())
-        goto RETURN;
+    JM_WIC_CHECK(encoder->Commit());
 
     ret = 1;
 
@@ -288,4 +267,5 @@ RETURN:
     return ret;
 }
 
+#undef JM_WIC_CHECK
 #endif // WIC_IMAGE_H

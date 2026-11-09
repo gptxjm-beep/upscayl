@@ -21,11 +21,11 @@ inline std::string unhex(const std::string& text) {
     if(result.find('\0') != std::string::npos) return {};
     return result;
 }
-inline void event(int id, bool ok) {
+inline void event(int id, bool ok, const char* stage = "encode", int code = 0) {
     if (!ok) failed = true;
     if(control.empty()) return;
     std::lock_guard<std::mutex> guard(events);
-    printf("@JM1 %d %d\n", id, ok ? 1 : 0);
+    printf("@JM2 %d %d %s %d\n", id, ok ? 1 : 0, stage, code);
     fflush(stdout);
 }
 inline bool admit() {

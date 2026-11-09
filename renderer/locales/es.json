@@ -311,5 +311,5 @@
       "DESCRIPTION": "¡Estás listo para empezar a aumentar imágenes con Upscayl!"
     }
   },
-  "SESSION": {"PAUSE": "Pausar", "PAUSING": "Pausando...", "RESUME": "Reanudar", "CANCEL": "Cancelar", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
+  "SESSION": {"PAUSE": "Pausar", "PAUSING": "Pausando...", "RESUME": "Reanudar", "CANCEL": "Cancelar", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

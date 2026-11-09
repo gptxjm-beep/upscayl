@@ -15,13 +15,13 @@ const SystemInfo = () => {
         {Object.keys(systemInfo || {}).map((key) => (
           <div key={key} className="flex flex-col">
             <p className="font-mono capitalize">{key}:</p>
-            {typeof systemInfo[key] === "object" ? (
+            {systemInfo[key] !== null && typeof systemInfo[key] === "object" ? (
               <div className="ml-2">
                 {Object.keys(systemInfo[key]).map((subKey) => (
                   <div key={subKey} className="flex flex-row gap-1">
                     <p className="font-mono">{subKey}:</p>
                     <p className="font-mono font-semibold">
-                      {systemInfo[key][subKey]}
+                      {typeof systemInfo[key][subKey] === "object" ? JSON.stringify(systemInfo[key][subKey]) : String(systemInfo[key][subKey] ?? "")}
                     </p>
                   </div>
                 ))}

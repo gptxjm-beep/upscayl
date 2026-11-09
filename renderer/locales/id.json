@@ -310,5 +310,5 @@
       "DESCRIPTION": "Anda siap untuk mulai meningkatkan gambar dengan Upscayl!"
     }
   },
-  "SESSION": {"PAUSE": "Jeda", "PAUSING": "Menjeda...", "RESUME": "Lanjutkan", "CANCEL": "Batal", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
+  "SESSION": {"PAUSE": "Jeda", "PAUSING": "Menjeda...", "RESUME": "Lanjutkan", "CANCEL": "Batal", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

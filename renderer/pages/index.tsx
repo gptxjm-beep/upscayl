@@ -1,3 +1,4 @@
+import useBatchJob from "@/components/hooks/use-batch-job";
 "use client";
 import { useState, useEffect } from "react";
 import { ELECTRON_COMMANDS } from "@common/electron-commands";
@@ -25,6 +26,7 @@ import { OnboardingDialog } from "@/components/main-content/onboarding-dialog";
 import useSystemInfo from "@/components/hooks/use-system-info";
 
 const Home = () => {
+  useBatchJob();
   const t = useAtomValue(translationAtom);
   const logit = useLogger();
   const { toast } = useToast();

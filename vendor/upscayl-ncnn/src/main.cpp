@@ -261,14 +261,14 @@ public:
 
         while (tasks.size() >= 8) // FIXME hardcode queue length
         {
-            condition.wait(lock);
+            not_full.wait(lock);
         }
 
         tasks.push(v);
 
         lock.unlock();
 
-        condition.signal();
+        not_empty.signal();
     }
 
     void get(Task &v)
@@ -277,7 +277,7 @@ public:
 
         while (tasks.size() == 0)
         {
-            condition.wait(lock);
+            not_empty.wait(lock);
         }
 
         v = tasks.front();
@@ -285,12 +285,13 @@ public:
 
         lock.unlock();
 
-        condition.signal();
+        not_full.signal();
     }
 
 private:
     ncnn::Mutex lock;
-    ncnn::ConditionVariable condition;
+    ncnn::ConditionVariable not_empty;
+    ncnn::ConditionVariable not_full;
     std::queue<Task> tasks;
 };
 
@@ -414,7 +415,7 @@ void *load(void *args)
         }
         else
         {
-            jm::event(i, false);
+            jm::event(i, false, "decode", -1);
 #if _WIN32
             fwprintf(stderr, L"🚨 Error: Couldn't read the image '%s'!\n", imagepath.c_str());
 #else  // _WIN32
@@ -447,7 +448,7 @@ void *proc(void *args)
             break;
 
         int result = realesrgan->process(v.inimage, v.outimage);
-        if(result != 0) { jm::event(v.id, false); }
+        if(result != 0) { jm::event(v.id, false, "inference", result); }
 
         if(result == 0) tosave.put(v);
         else { free(v.inimage.data); }
@@ -648,7 +649,7 @@ void *save(void *args)
             success = stbi_write_jpg(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data, 100 - (int)stp->compression);
 #endif
         }
-        jm::event(v.id, success != 0);
+        jm::event(v.id, success != 0, "encode", success ? 0 : -1);
         if (success)
         {
             fprintf(stderr, "100.00%\n");

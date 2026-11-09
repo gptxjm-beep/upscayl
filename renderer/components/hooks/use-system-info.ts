@@ -7,8 +7,7 @@ const useSystemInfo = () => {
 
   useEffect(() => {
     const getSystemInfo = async () => {
-      const systemInfo = await window.electron.getSystemInfo();
-      setSystemInfo(systemInfo);
+      try { setSystemInfo(await window.electron.getSystemInfo()); } catch { setSystemInfo(null); }
     };
     getSystemInfo();
   }, []);

@@ -310,5 +310,5 @@
       "DESCRIPTION": "Jetzt kannst du Bilder mit Upscayl upscaylen!"
     }
   },
-  "SESSION": {"PAUSE": "Pausieren", "PAUSING": "Wird pausiert...", "RESUME": "Fortsetzen", "CANCEL": "Abbrechen", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch"}
+  "SESSION": {"PAUSE": "Pausieren", "PAUSING": "Wird pausiert...", "RESUME": "Fortsetzen", "CANCEL": "Abbrechen", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

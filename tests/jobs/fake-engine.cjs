@@ -21,7 +21,7 @@ async function main() {
     process.stdout.write(`@JM1 ${id} 1\n`);
     // Deterministic fixture backpressure: let the host observe completions.
     while(fs.existsSync(output) && !fs.existsSync(path.join(work,'pause'))) await delay(3);
-   } catch {failed=true;process.stdout.write(`@JM1 ${id} 0\n`);}
+   } catch {failed=true;process.stderr.write('fixture codec failure HRESULT=0x80004005\n');process.stdout.write(`@JM2 ${id} 0 decode -1\n`);}
   }
  }
  await Promise.all([worker(),worker(),worker()]);

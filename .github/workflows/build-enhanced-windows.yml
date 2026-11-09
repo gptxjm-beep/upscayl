@@ -1,7 +1,7 @@
 name: Build Upscayl Enhanced Windows (review build)
 on:
   push:
-    branches: [feature/enhanced-pause-resume]
+    branches: [fix/jm2-original-ui]
   workflow_dispatch:
   pull_request:
     paths:
@@ -19,6 +19,7 @@ on:
       - '.github/workflows/build-enhanced-windows.yml'
 permissions:
   contents: read
+  actions: read
 jobs:
   windows:
     runs-on: windows-2022
@@ -63,6 +64,21 @@ jobs:
       - name: Test native admission and drain protocol
         shell: cmd
         run: cl /std:c++17 /utf-8 /EHsc tests\jobs\protocol.cpp /Fe:protocol-test.exe && protocol-test.exe
+      - name: Test WIC codec on fresh Windows threads (no GPU)
+        shell: cmd
+        run: cl /std:c++17 /utf-8 /EHsc tests\jobs\wic.cpp /Fe:wic-test.exe /link windowscodecs.lib ole32.lib oleaut32.lib && wic-test.exe "%RUNNER_TEMP%\jm2-codec"
+      - name: Fetch jm.1 reference artifact for regression comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: Upscayl-Enhanced-2.15.0-jm.1-Portable-x64
+          run-id: 42705296555
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/jm1-reference
+      - name: Extract reference engine only
+        shell: pwsh
+        run: python tools/extract-jm1-reference.py "$env:RUNNER_TEMP/jm1-reference"
+      - name: Test real batch inference and recovery with software Vulkan
+        run: python tools/ci-command.py --label software-Vulkan-functional -- node --test tests/jobs/native-functional.cjs
       - name: Build renderer
         run: python tools/ci-command.py --label renderer -- npm run build
       - name: Smoke test Electron UI
@@ -73,7 +89,7 @@ jobs:
         run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
       - uses: actions/upload-artifact@v4
         with:
-          name: Upscayl-Enhanced-2.15.0-jm.1-Installer-x64
+          name: Upscayl-Enhanced-2.15.0-jm.2-Installer-x64
           path: |
             dist-enhanced/*.exe
             dist-enhanced/SHA256.txt
@@ -81,7 +97,7 @@ jobs:
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Upscayl-Enhanced-2.15.0-jm.1-Portable-x64
+          name: Upscayl-Enhanced-2.15.0-jm.2-Portable-x64
           path: |
             dist-enhanced/*.zip
             dist-enhanced/SHA256.txt
