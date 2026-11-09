@@ -12,6 +12,8 @@ on:
       - 'tools/build-enhanced-engine.py'
       - 'tools/enhanced-builder.cjs'
       - 'tools/verify-enhanced-windows.py'
+      - 'tools/install-vulkan-sdk.ps1'
+      - 'tools/ci-command.py'
       - 'tests/jobs/**'
       - 'package*.json'
       - '.github/workflows/build-enhanced-windows.yml'
@@ -36,15 +38,8 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Install pinned CMake
         run: python tools/ci-command.py --label CMake -- python -m pip install cmake==3.31.6
-      - name: Install pinned Vulkan SDK
-        run: python tools/ci-command.py --label Vulkan-SDK -- choco install vulkan-sdk --version=1.3.280.0 --yes --no-progress
-      - name: Locate pinned Vulkan SDK
-        shell: pwsh
-        run: |
-          $sdk = Get-Item C:\VulkanSDK\1.3.280.0
-          if (!$sdk) { throw 'Pinned Vulkan SDK not found' }
-          "VULKAN_SDK=$($sdk.FullName)" >> $env:GITHUB_ENV
-          "$($sdk.FullName)\Bin" >> $env:GITHUB_PATH
+      - name: Install signature-verified pinned Vulkan SDK
+        run: python tools/ci-command.py --label Vulkan-SDK -- pwsh -NoProfile -File tools/install-vulkan-sdk.ps1
       - run: python tools/ci-command.py --label npm-ci -- npm ci
       - name: Compile modified engine
         run: python tools/ci-command.py --label native-engine -- python tools/build-enhanced-engine.py
@@ -65,9 +60,16 @@ jobs:
         run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
       - uses: actions/upload-artifact@v4
         with:
-          name: Upscayl-Enhanced-2.15.0-jm.1-Windows-x64
+          name: Upscayl-Enhanced-2.15.0-jm.1-Installer-x64
           path: |
             dist-enhanced/*.exe
+            dist-enhanced/SHA256.txt
+            dist-enhanced/delivery-manifest.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Upscayl-Enhanced-2.15.0-jm.1-Portable-x64
+          path: |
             dist-enhanced/*.zip
             dist-enhanced/SHA256.txt
             dist-enhanced/delivery-manifest.json

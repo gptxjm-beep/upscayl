@@ -1,6 +1,7 @@
 """Verify real Windows delivery files, including both ZIP and NSIS engine payloads."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -94,6 +95,16 @@ def main():
     (DIST / 'delivery-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     checksums = '\n'.join(f"{entry['sha256']}  {entry['name']}" for entry in manifest['files'])+'\n'
     (DIST / 'SHA256.txt').write_text(checksums,encoding='utf-8')
+    summary = os.environ.get('GITHUB_STEP_SUMMARY')
+    if summary:
+        lines = ['## Verified Windows delivery', '', f"Commit: `{manifest['commit']}`", '',
+                 '| File | Bytes | SHA-256 |', '|---|---:|---|']
+        lines += [f"| {entry['name']} | {entry['size_bytes']} | `{entry['sha256']}` |" for entry in manifest['files']]
+        lines += ['', f'Modified engine SHA-256: `{engine_hash}`', '',
+                  'Both ZIP and installer payloads verified: x64 application/engine, 14 model files, DLLs, enhanced routing and isolated identity.',
+                  'Native Windows CLI startup checked. GPU inference and Pause/Resume on a real GPU were NOT tested.']
+        with open(summary,'a',encoding='utf-8') as stream:
+            stream.write('\n'.join(lines)+'\n')
     print(json.dumps(manifest,indent=2))
 
 
