@@ -17,21 +17,14 @@ async function open(){
   const req=process.getBuiltinModule('module').createRequire(root+'/package.json');
   const manager=req(root+'/export/electron/jobs/integration.js').batchManager();
   manager.launch=(exe,args)=>req('child_process').spawn(node,[exe,...args],{windowsHide:true,env:{...process.env,NODE_OPTIONS:''}});
-  global.recoveryCount=0;global.resumeOnNext=false;global.recoveryPhase=()=>manager.snapshot()?.phase;
-  dialog.showMessageBox=async (...args)=>{
-   const options=args[args.length-1];
-   if(options.title==='Previous Upscayl Session Found'){
-    global.recoveryCount++;
-    if(!options.detail.includes('images have been completed.'))throw Error('Missing recovery counts');
-    return {response:global.resumeOnNext?0:2};
-   }
-   return {response:0};
-  };
+  global.recoveryPhase=()=>manager.snapshot()?.phase;
   dialog.showOpenDialog=async()=>({canceled:false,filePaths:[source]});
  },{root,node:process.execPath,source});
  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
  try{await page.getByRole('button',{name:'Close',exact:true}).click({timeout:5000});}catch{}
- await until(()=>app.evaluate(()=>global.recoveryCount===1));
+ await page.getByRole('button',{name:'Resume Processing',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Not Now',exact:true}).click();
+ await page.getByRole('button',{name:'Resume Processing',exact:true}).waitFor({state:'hidden'});
  return {app,page};
 }
 (async()=>{
@@ -48,10 +41,13 @@ async function open(){
   current=await open();assert.deepEqual(fs.readFileSync(manager.session.file),journal,'Cancel recovery must not mutate the journal');
   await current.app.close();current=undefined;
   current=await open();assert.deepEqual(fs.readFileSync(manager.session.file),journal,'Closing/reopening must retain paused state');
-  await current.app.evaluate(()=>{global.resumeOnNext=true;});
   await current.page.locator('input.toggle').first().click();
   await current.page.getByRole('button',{name:'Select Folder',exact:true}).click();
-  await until(()=>current.app.evaluate(()=>global.recoveryCount===2&&global.recoveryPhase()==='completed'));
+  await current.page.getByText('Current settings',{exact:true}).waitFor();
+  await current.page.getByText('Previous settings',{exact:true}).waitFor();
+  await current.page.getByRole('button',{name:'Resume Previous Session',exact:true}).click();
+  await until(()=>current.app.evaluate(()=>global.recoveryPhase()==='completed'));
+  await current.page.getByRole('button',{name:'Resume Previous Session',exact:true}).waitFor({state:'hidden'});
   for(const [name,time]of times)assert.equal(fs.statSync(path.join(manager.session.output,name)).mtimeMs,time);
   assert(!fs.existsSync(manager.session.file));
   console.log('Electron close/relaunch, recovery Cancel, selecting the same source folder and Resume passed; simulator backend, not a GPU test.');

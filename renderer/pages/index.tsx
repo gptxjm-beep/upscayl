@@ -1,3 +1,5 @@
+import BatchPromptDialogs from '@/components/main-content/batch-prompts';
+import { batchSettingsAtom } from '@/atoms/batch-settings-atom';
 import useBatchJob from "@/components/hooks/use-batch-job";
 "use client";
 import { useState, useEffect } from "react";
@@ -27,6 +29,7 @@ import useSystemInfo from "@/components/hooks/use-system-info";
 
 const Home = () => {
   useBatchJob();
+  const batchSettings=useAtomValue(batchSettingsAtom);
   const t = useAtomValue(translationAtom);
   const logit = useLogger();
   const { toast } = useToast();
@@ -73,7 +76,7 @@ const Home = () => {
     if (path !== null) {
       logit("🖼 Selected Folder Path: ", path);
       setBatchFolderPath(path);
-      void window.electron.invoke(ELECTRON_COMMANDS.JOB_DISCOVER, path);
+      void window.electron.invoke(ELECTRON_COMMANDS.JOB_DISCOVER, {source:path,settings:{...batchSettings,batchFolderPath:path,outputPath:rememberOutputFolder?(batchSettings.outputPath||path):path}});
       if (!rememberOutputFolder) {
         setOutputPath(path);
       }
@@ -362,6 +365,7 @@ const Home = () => {
         setDimensions={setDimensions}
       />
       <OnboardingDialog />
+      <BatchPromptDialogs />
     </div>
   );
 };

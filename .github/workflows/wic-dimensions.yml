@@ -23,8 +23,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & .\wic-dimensions.exe | Tee-Object .test-artifacts/wic-dimensions.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item wic-dimensions.exe .test-artifacts/
+          Get-Content .test-artifacts/wic-dimensions.txt | Add-Content $env:GITHUB_STEP_SUMMARY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: WIC-dimension-diagnostics
           path: .test-artifacts/
+          include-hidden-files: true

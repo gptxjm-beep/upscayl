@@ -1,4 +1,4 @@
-import { registerJobs, startBatch, offerRecovery } from "./jobs/integration";
+import { registerJobs, startBatch } from "./jobs/integration";
 import prepareNext from "electron-next";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
@@ -57,7 +57,6 @@ app.on("ready", async () => {
   });
 
   createMainWindow();
-  setTimeout(() => { void offerRecovery(); }, 2500);
 
   log.info(
     "🆙 Upscayl version:",

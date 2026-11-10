@@ -243,3 +243,33 @@ test('legacy Pause engine cannot be restored silently; start-over uses the suppl
  assert.equal(fresh.session.phase,'completed');assert.equal(fresh.session.engine,fake);
  assert.notEqual(fresh.session.output,oldOutput);assert(fs.existsSync(oldOutput));
 });
+
+
+test('fresh run uses current settings and preserves old adopted output bytes',async t=>{
+ const f=await fixture(t,12),old=f.make();let paused=false;
+ old.on('state',s=>{if(s.completed>=1&&!paused){paused=true;old.pause();}});
+ const ended=settled(old);await old.create(f.settings,f.models,fake);await ended;
+ const adopted=old.session.items.filter(i=>i.state==='completed').map(i=>[path.join(old.session.output,i.name),fs.readFileSync(path.join(old.session.output,i.name))]);
+ assert(adopted.length>0);const previousId=old.session.id;
+ const current={...f.settings,scale:'2',saveImageAs:'jpg',tileSize:64,ttaMode:true};
+ const next=f.make(),done=settled(next);await next.restart(previousId,fake,f.models,current);await next.whenStarted();await done;
+ assert.equal(next.session.phase,'completed');assert.deepEqual(next.session.settings,current);
+ for(const item of next.session.items){const info=await sharp(path.join(next.session.output,item.name)).metadata();assert.equal(info.width,4);assert.equal(info.height,6);assert.equal(info.format,'jpeg');}
+ for(const [file,bytes]of adopted)assert.deepEqual(fs.readFileSync(file),bytes);
+ assert(!next.discover().some(s=>s.id===previousId));
+});
+
+test('clean shutdown marker persists; starting inference resets it to open',async t=>{
+ const f=await fixture(t,12),m=f.make();await m.create(f.settings,f.models,fake);await m.whenStarted();await m.shutdown();
+ assert.equal(readJSON(m.session.file).shutdown,'clean');assert.equal(m.discover()[0].shutdown,'clean');
+ const next=f.make(),done=settled(next);await next.restore(m.session.id);await next.whenStarted();assert.equal(readJSON(next.session.file).shutdown,'open');await done;
+});
+
+test('a relocated identical engine and model can resume; arbitrary changed engines cannot',async t=>{
+ const f=await fixture(t,12),m=f.make();await m.create(f.settings,f.models,fake);await m.shutdown();
+ const relocated=path.join(f.root,'relocated.cjs');fs.copyFileSync(fake,relocated);
+ const record=readJSON(m.session.file);record.engine=path.join(f.root,'gone.cjs');atomicJSON(m.session.file,record);
+ const bad=path.join(f.root,'unknown.cjs');fs.writeFileSync(bad,'// @JM3 GATE changed');
+ await assert.rejects(()=>f.make().restore(record.id,bad,f.models),/no verified compatible upgrade/);
+ const next=f.make(),done=settled(next);await next.restore(record.id,relocated,f.models);await done;assert.equal(next.session.phase,'completed');
+});

@@ -6,6 +6,8 @@
 #include <vector>
 #include <clocale>
 #include <filesystem>
+#include <limits>
+#include <climits>
 #include "session.h"
 
 namespace fs = std::filesystem;
@@ -361,6 +363,7 @@ void *load(void *args)
                 {
                     // not webp, try jpg png etc.
 #if _WIN32
+                    jm_wic_image_id=i;
                     pixeldata = wic_decode_image(imagepath.c_str(), &w, &h, &c);
 #else  // _WIN32
                     pixeldata = stbi_load_from_memory(filedata, length, &w, &h, &c, 0);
@@ -479,94 +482,33 @@ public:
     int verbose;
 };
 
-void resize_output_image(Task &v, const SaveThreadParams *stp)
+// Own resized storage through Mat: external malloc-backed Mats do not free
+// their pixel buffer. Reject bad dimensions/allocation instead of encoding it.
+bool resize_pixels(Task& v, int64_t width, int64_t height)
 {
-    const int resizeWidth = stp->resizeWidth;
-    int resizeHeight = stp->resizeHeight;
-    const bool resizeProvided = stp->resizeProvided;
-    const bool hasCustomWidth = stp->hasCustomWidth;
-
-    if ((!resizeProvided && !hasCustomWidth) ||
-        (v.outimage.w == resizeWidth && v.outimage.h == resizeHeight) || (!resizeHeight && hasCustomWidth && v.outimage.w == resizeWidth))
-    {
-#if _WIN32
-        fwprintf(stderr, L"⏩ Skipping resize\n");
-#else  // _WIN32
-        fprintf(stderr, "⏩ Skipping resize\n");
-#endif // _WIN32
-        return;
+    const int c=v.outimage.elempack;
+    if(width<=0 || height<=0 || width>INT_MAX || height>INT_MAX || (c!=3 && c!=4) || width>INT_MAX/c || width*height>INT_MAX/c) {
+        fprintf(stderr,"[resize] image=%d invalid or unsupported dimensions width=%lld height=%lld channels=%d\n",v.id,(long long)width,(long long)height,c);return false;
     }
-
-    // Calculate the resize height if not provided
-    if (hasCustomWidth)
-    {
-        resizeHeight = (v.inimage.h * resizeWidth) / v.inimage.w;
-#if _WIN32
-        fwprintf(stderr, L"🧮 Calculated height from width: %d\n", resizeHeight);
-#else  // _WIN32
-        fprintf(stderr, "🧮 Calculated height from width: %d\n", resizeHeight);
-#endif // _WIN32
+    ncnn::Mat resized((int)width,(int)height,(size_t)c,c);
+    if(resized.empty()) {fprintf(stderr,"[resize] image=%d allocation failed width=%lld height=%lld channels=%d\n",v.id,(long long)width,(long long)height,c);return false;}
+    if(!stbir_resize_uint8_srgb((unsigned char*)v.outimage.data,v.outimage.w,v.outimage.h,0,(unsigned char*)resized.data,(int)width,(int)height,0,static_cast<stbir_pixel_layout>(c))) {
+        fprintf(stderr,"[resize] image=%d pixel resize failed\n",v.id);return false;
     }
-
-#if _WIN32
-    fwprintf(stderr, L"🏞️ Resizing image according to desired resolution\n");
-#else  // _WIN32
-    fprintf(stderr, "🏞️ Resizing image according to desired resolution\n");
-#endif // _WIN32
-
-    int c = v.outimage.elempack;
-
-    stbir_pixel_layout layout = static_cast<stbir_pixel_layout>(c);
-
-    // Create a new buffer for the resized image
-    unsigned char *resizedData = (unsigned char *)malloc(resizeWidth * resizeHeight * c);
-
-    // Resize the image using stb_image_resize
-    stbir_resize_uint8_srgb((unsigned char *)v.outimage.data, v.outimage.w, v.outimage.h, 0, resizedData, resizeWidth, resizeHeight, 0, layout);
-
-    // Replace the old image data with the new (resized) image data
-    v.outimage = ncnn::Mat(resizeWidth, resizeHeight, resizedData, (size_t)c, c);
-
-#if _WIN32
-    fwprintf(stderr, L"🏞️ Resized image from %dx%d to %dx%d\n", v.inimage.w, v.inimage.h, v.outimage.w, v.outimage.h);
-#else  // _WIN32
-    fprintf(stderr, "🏞️ Resized image from %dx%d to %dx%d\n", v.inimage.w, v.inimage.h, v.outimage.w, v.outimage.h);
-#endif // _WIN32
+    v.outimage=resized;return true;
 }
-
-void scale_output_image(Task &v, const SaveThreadParams *stp)
+bool resize_output_image(Task& v,const SaveThreadParams* stp)
 {
-    const int originalWidth = v.inimage.w;
-    const int originalHeight = v.inimage.h;
-    const bool hasOutputScale = stp->hasOutputScale;
-    const int outputScale = stp->outputScale;
-    const int outputWidth = originalWidth * outputScale;
-    const int outputHeight = originalHeight * outputScale;
-    const bool resizeProvided = stp->resizeProvided;
-    const bool hasCustomWidth = stp->hasCustomWidth;
-
-    if (!hasOutputScale || resizeProvided || hasCustomWidth)
-        return;
-
-    int c = v.outimage.elempack;
-
-#if _WIN32
-    fwprintf(stderr, L"🏞️ Resizing image according to output scale\n");
-#else  // _WIN32
-    fprintf(stderr, "🏞️ Resizing image according to output scale\n");
-#endif // _WIN32
-
-    stbir_pixel_layout layout = static_cast<stbir_pixel_layout>(c);
-    // Create a new buffer for the resized image
-    unsigned char *resizedData = (unsigned char *)malloc(outputWidth * outputHeight * c);
-    stbir_resize_uint8_srgb((unsigned char *)v.outimage.data, v.outimage.w, v.outimage.h, 0, resizedData, outputWidth, outputHeight, 0, layout);
-    v.outimage = ncnn::Mat(outputWidth, outputHeight, resizedData, (size_t)v.outimage.elemsize, v.outimage.elemsize);
-
-#if _WIN32
-    fwprintf(stderr, L"🏞️ Resized image from %dx%d to %dx%d\n", originalWidth, originalHeight, outputWidth, outputHeight);
-#else  // _WIN32
-    fprintf(stderr, "🏞️ Scaled image from %dx%d to %dx%d\n", originalWidth, originalHeight, outputWidth, outputHeight);
-#endif // _WIN32
+    if(!stp->resizeProvided&&!stp->hasCustomWidth)return true;
+    if(v.inimage.w<=0||v.inimage.h<=0)return false;
+    const int64_t height=stp->hasCustomWidth ? (int64_t)v.inimage.h*stp->resizeWidth/v.inimage.w : stp->resizeHeight;
+    if(v.outimage.w==stp->resizeWidth&&v.outimage.h==height)return true;
+    return resize_pixels(v,stp->resizeWidth,height);
+}
+bool scale_output_image(Task& v,const SaveThreadParams* stp)
+{
+    if(!stp->hasOutputScale||stp->resizeProvided||stp->hasCustomWidth)return true;
+    return resize_pixels(v,(int64_t)v.inimage.w*stp->outputScale,(int64_t)v.inimage.h*stp->outputScale);
 }
 
 void *save(void *args)
@@ -583,6 +525,7 @@ void *save(void *args)
         if (v.id == -233)
             break;
 
+        const int inferred_width=v.outimage.w,inferred_height=v.outimage.h;
         // free input pixel data
         {
             unsigned char *pixeldata = (unsigned char *)v.inimage.data;
@@ -602,14 +545,18 @@ void *save(void *args)
 
         if (stp->hasOutputScale)
         {
-            scale_output_image(v, stp);
+            if(!scale_output_image(v, stp)){jm::event(v.id,false,"resize",-1);continue;}
         }
 
         if ((stp->resizeProvided || stp->hasCustomWidth) && !stp->hasOutputScale)
         {
-            resize_output_image(v, stp);
+            if(!resize_output_image(v, stp)){jm::event(v.id,false,"resize",-1);continue;}
         }
 
+        if(v.outimage.empty()||v.outimage.w<=0||v.outimage.h<=0){fprintf(stderr,"[encode] image=%d invalid output dimensions width=%d height=%d\n",v.id,v.outimage.w,v.outimage.h);jm::event(v.id,false,"encode",-1);continue;}
+#if _WIN32
+        jm_wic_image_id=v.id;jm_wic_last_error=S_OK;
+#endif
         int success = 0;
 
         path_t ext = get_file_extension(v.outpath);
@@ -657,7 +604,19 @@ void *save(void *args)
             success = stbi_write_jpg(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data, 100 - (int)stp->compression);
 #endif
         }
+        if(!success) {
+            const std::string name=fs::path(v.inpath).filename().u8string();
+#if _WIN32
+            fprintf(stderr,"[encode] image=%d name=%s input=%dx%d inferred=%dx%d final=%dx%d codec=%s HRESULT=0x%08lx\n",v.id,name.c_str(),v.inimage.w,v.inimage.h,inferred_width,inferred_height,v.outimage.w,v.outimage.h,fs::path(v.outpath).extension().u8string().c_str(),(unsigned long)jm_wic_last_error);
+#else
+            fprintf(stderr,"[encode] image=%d name=%s input=%dx%d inferred=%dx%d final=%dx%d codec=%s failed\n",v.id,name.c_str(),v.inimage.w,v.inimage.h,inferred_width,inferred_height,v.outimage.w,v.outimage.h,fs::path(v.outpath).extension().u8string().c_str());
+#endif
+        }
+#if _WIN32
+        jm::event(v.id,success!=0,"encode",success?0:FAILED(jm_wic_last_error)?(int)jm_wic_last_error:-1);
+#else
         jm::event(v.id, success != 0, "encode", success ? 0 : -1);
+#endif
         if (success)
         {
             fprintf(stderr, "100.00%\n");

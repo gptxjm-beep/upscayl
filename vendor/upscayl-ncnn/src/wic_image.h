@@ -12,7 +12,14 @@ struct JmWicApartment {
     ~JmWicApartment() { if(SUCCEEDED(status)) CoUninitialize(); }
     bool ready() const { return SUCCEEDED(status) || status == RPC_E_CHANGED_MODE; }
 };
-#define JM_WIC_CHECK(expression) do { HRESULT jm_hr = (expression); if(FAILED(jm_hr)) { fprintf(stderr, "[WIC] %s HRESULT=0x%08lx\n", #expression, static_cast<unsigned long>(jm_hr)); goto RETURN; } } while(0)
+inline thread_local HRESULT jm_wic_last_error=S_OK;
+inline thread_local int jm_wic_image_id=-1;
+inline HRESULT jm_wic_set_size(IWICBitmapFrameEncode* frame,int w,int h,int c,const char* codec) {
+    HRESULT status=frame->SetSize((UINT)w,(UINT)h);
+    if(FAILED(status))fprintf(stderr,"[WIC] image=%d codec=%s width=%d height=%d channels=%d HRESULT=0x%08lx\n",jm_wic_image_id,codec,w,h,c,static_cast<unsigned long>(status));
+    return status;
+}
+#define JM_WIC_CHECK(expression) do { HRESULT jm_hr = (expression); if(FAILED(jm_hr)) { jm_wic_last_error=jm_hr; fprintf(stderr, "[WIC] image=%d %s HRESULT=0x%08lx\n", jm_wic_image_id, #expression, static_cast<unsigned long>(jm_hr)); goto RETURN; } } while(0)
 
 unsigned char *wic_decode_image(const wchar_t *filepath, int *w, int *h, int *c)
 {
@@ -119,6 +126,7 @@ RETURN:
 
 int wic_encode_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata)
 {
+    jm_wic_last_error=S_OK;
     JmWicApartment apartment;
     if(!apartment.ready()) { fprintf(stderr, "[WIC] CoInitializeEx HRESULT=0x%08lx\n", static_cast<unsigned long>(apartment.status)); return 0; }
     IWICImagingFactory *factory = 0;
@@ -144,7 +152,7 @@ int wic_encode_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata
 
     JM_WIC_CHECK(frame->Initialize(0));
 
-    JM_WIC_CHECK(frame->SetSize((UINT)w, (UINT)h));
+    JM_WIC_CHECK(jm_wic_set_size(frame,w,h,c,"png"));
 
     JM_WIC_CHECK(frame->SetPixelFormat(&format));
 
@@ -187,6 +195,7 @@ RETURN:
 
 int wic_encode_jpeg_image(const wchar_t *filepath, int w, int h, int c, void *bgrdata)
 {
+    jm_wic_last_error=S_OK;
     JmWicApartment apartment;
     if(!apartment.ready()) { fprintf(stderr, "[WIC] CoInitializeEx HRESULT=0x%08lx\n", static_cast<unsigned long>(apartment.status)); return 0; }
     // assert c == 3
@@ -224,7 +233,7 @@ int wic_encode_jpeg_image(const wchar_t *filepath, int w, int h, int c, void *bg
 
     JM_WIC_CHECK(frame->Initialize(propertybag));
 
-    JM_WIC_CHECK(frame->SetSize((UINT)w, (UINT)h));
+    JM_WIC_CHECK(jm_wic_set_size(frame,w,h,c,"jpeg"));
 
     JM_WIC_CHECK(frame->SetPixelFormat(&format));
 
