@@ -15,5 +15,5 @@ export function describeFailure(details:string,image?:string,stage?:string,code?
   return {image:image?path.basename(image):undefined,stage,code,reason,details:details.slice(-6000)};
 }
 export function significantEngineLine(line:string) {
-  return /\b(error|warning|failed|failure|invalid|cannot|couldn't|HRESULT|WIC|out of memory|dimensions|not found)\b/i.test(line);
+  return /\b(error|warning|failed|failure|invalid|cannot|couldn't|HRESULT|WIC|PNG|out of memory|dimensions|not found)\b/i.test(line);
 }

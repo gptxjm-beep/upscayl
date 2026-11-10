@@ -1,7 +1,7 @@
 name: Build Upscayl Enhanced Windows (review build)
 on:
   push:
-    branches: [fix/jm4-recovery-ux]
+    branches: [feature/jm5-long-png-two-stage]
   workflow_dispatch:
   pull_request:
     paths:
@@ -46,8 +46,10 @@ jobs:
         id: engine-cache
         uses: actions/cache/restore@v4
         with:
-          path: resources/win/bin/upscayl-jm.exe
-          key: windows-x64-jm-${{ hashFiles('vendor/upscayl-ncnn/**', 'tools/build-enhanced-engine.py', 'tools/install-vulkan-sdk.ps1') }}
+          path: |
+            resources/win/bin/upscayl-jm.exe
+            vendor/upscayl-ncnn/build/Release/jm-png-test.exe
+          key: windows-x64-jm-${{ hashFiles('vendor/upscayl-ncnn/**', 'tools/build-enhanced-engine.py', 'tools/install-vulkan-sdk.ps1', 'tests/jobs/png-stream.cpp') }}
       - name: Compile modified engine
         if: steps.engine-cache.outputs.cache-hit != 'true'
         run: python tools/ci-command.py --label native-engine -- python tools/build-enhanced-engine.py
@@ -55,18 +57,24 @@ jobs:
         if: steps.engine-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: resources/win/bin/upscayl-jm.exe
+          path: |
+            resources/win/bin/upscayl-jm.exe
+            vendor/upscayl-ncnn/build/Release/jm-png-test.exe
           key: ${{ steps.engine-cache.outputs.cache-primary-key }}
       - name: Compile TypeScript
         run: python tools/ci-command.py --label TypeScript -- npm run tsc
       - name: Test persistent sessions
-        run: python tools/ci-command.py --label sessions --timeout-seconds 240 -- node --test tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs
+        run: python tools/ci-command.py --label sessions --timeout-seconds 240 -- node --test tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs tests/jobs/output.test.cjs tests/jobs/single-output.test.cjs
       - name: Test native admission and drain protocol
         shell: cmd
         run: cl /std:c++17 /utf-8 /EHsc tests\jobs\protocol.cpp /Fe:protocol-test.exe && protocol-test.exe
       - name: Test WIC codec on fresh Windows threads (no GPU)
         shell: cmd
         run: cl /std:c++17 /utf-8 /EHsc tests\jobs\wic.cpp /Fe:wic-test.exe /link windowscodecs.lib ole32.lib oleaut32.lib && wic-test.exe "%RUNNER_TEMP%\jm2-codec"
+      - name: Test streaming long PNG and full decode (no GPU)
+        run: python tools/ci-command.py --label streaming-PNG -- vendor/upscayl-ncnn/build/Release/jm-png-test.exe .test-artifacts/long-png
+      - name: Decode long PNG with independent libvips
+        run: python tools/ci-command.py --label long-PNG-independent -- node tests/jobs/long-png.cjs .test-artifacts/long-png/1440x70200.png
       - name: Fetch jm.2 reference artifact for regression comparison
         uses: actions/download-artifact@v4
         with:
@@ -95,7 +103,7 @@ jobs:
         run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
       - uses: actions/upload-artifact@v4
         with:
-          name: Upscayl-Enhanced-2.15.0-jm.4-Installer-x64
+          name: Upscayl-Enhanced-2.15.0-jm.5-Installer-x64
           path: |
             dist-enhanced/*.exe
             dist-enhanced/SHA256.txt
@@ -103,7 +111,7 @@ jobs:
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Upscayl-Enhanced-2.15.0-jm.4-Portable-x64
+          name: Upscayl-Enhanced-2.15.0-jm.5-Portable-x64
           path: |
             dist-enhanced/*.zip
             dist-enhanced/SHA256.txt

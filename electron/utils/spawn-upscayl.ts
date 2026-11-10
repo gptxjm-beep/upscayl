@@ -1,9 +1,10 @@
 import { spawn } from "child_process";
-import { execPath } from "./get-resource-paths";
+import { execPath, enhancedExecPath } from "./get-resource-paths";
 
 export const spawnUpscayl = (
   command: string[],
   logit: (...args: any) => void,
+  enhanced = false,
 ) => {
   logit(
     "📢 Upscayl Command: ",
@@ -11,7 +12,7 @@ export const spawnUpscayl = (
   );
 
   const spawnedProcess = spawn(
-    execPath,
+    enhanced ? enhancedExecPath : execPath,
     command.filter((arg) => arg !== ""),
     {
       cwd: undefined,

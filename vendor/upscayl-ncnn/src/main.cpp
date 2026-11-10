@@ -9,6 +9,7 @@
 #include <limits>
 #include <climits>
 #include "session.h"
+#include "png_stream.h"
 
 namespace fs = std::filesystem;
 
@@ -582,7 +583,19 @@ void *save(void *args)
         else if (ext == PATHSTR("png") || ext == PATHSTR("PNG"))
         {
 #if _WIN32
-            success = wic_encode_image(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data);
+            static std::atomic<bool> normal_encoder_reported{false};
+            const bool long_png=v.outimage.w>65535||v.outimage.h>65535;
+            if(long_png) {
+                fprintf(stderr,"[PNG] image=%d encoder=libpng width=%d height=%d reason=wic-dimension-preflight\n",v.id,v.outimage.w,v.outimage.h);
+                success=jm::png_stream(v.outpath,v.outimage.w,v.outimage.h,v.outimage.elempack,(unsigned char*)v.outimage.data,(size_t)v.outimage.w*v.outimage.elempack,true,stp->compression>0?std::min(9,(int)stp->compression):6);
+            }else{
+                if(!normal_encoder_reported.exchange(true))fprintf(stderr,"[PNG] encoder=WIC width=%d height=%d reason=normal-size\n",v.outimage.w,v.outimage.h);
+                success = wic_encode_image(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data);
+                if(!success&&jm_wic_last_error==WINCODEC_ERR_IMAGESIZEOUTOFRANGE){
+                    fprintf(stderr,"[PNG] image=%d encoder=libpng width=%d height=%d reason=wic-dimension-rejection HRESULT=0x%08lx\n",v.id,v.outimage.w,v.outimage.h,(unsigned long)jm_wic_last_error);
+                    success=jm::png_stream(v.outpath,v.outimage.w,v.outimage.h,v.outimage.elempack,(unsigned char*)v.outimage.data,(size_t)v.outimage.w*v.outimage.elempack,true,stp->compression>0?std::min(9,(int)stp->compression):6);
+                }
+            }
 #else
             // if compression is more than 0 make stbi_write_png_compression_level = 9
             if (stp->compression > 0)
@@ -593,7 +606,10 @@ void *save(void *args)
             {
                 stbi_write_png_compression_level = 9;
             }
-            success = stbi_write_png(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data, 0);
+            if(v.outimage.w>65535||v.outimage.h>65535){
+                fprintf(stderr,"[PNG] image=%d encoder=libpng width=%d height=%d reason=long-png\n",v.id,v.outimage.w,v.outimage.h);
+                success=jm::png_stream(v.outpath,v.outimage.w,v.outimage.h,v.outimage.elempack,(unsigned char*)v.outimage.data,(size_t)v.outimage.w*v.outimage.elempack,false,stp->compression>0?std::min(9,(int)stp->compression):6);
+            }else success = stbi_write_png(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data, 0);
 #endif
         }
         else if (ext == PATHSTR("jpg") || ext == PATHSTR("JPG") || ext == PATHSTR("jpeg") || ext == PATHSTR("JPEG"))

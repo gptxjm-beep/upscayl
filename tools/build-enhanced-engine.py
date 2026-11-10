@@ -13,7 +13,7 @@ origin = json.loads((vendor / 'ORIGIN.json').read_text())
 def run(*args, cwd=None):
     subprocess.run(list(map(str,args)), cwd=cwd, check=True)
 
-for name, url in [('ncnn','https://github.com/Tencent/ncnn.git'),('libwebp','https://github.com/webmproject/libwebp.git')]:
+for name, url in [('ncnn','https://github.com/Tencent/ncnn.git'),('libwebp','https://github.com/webmproject/libwebp.git'),('zlib','https://github.com/madler/zlib.git'),('libpng','https://github.com/pnggroup/libpng.git')]:
     target=vendor / 'src' / name
     if not (target / '.git').exists():
         run('git','clone','--filter=blob:none',url,target)

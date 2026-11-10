@@ -1,3 +1,5 @@
 /src/ncnn/
 /src/libwebp/
 /build/
+/src/libpng/
+/src/zlib/

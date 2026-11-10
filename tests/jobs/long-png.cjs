@@ -1,0 +1,3 @@
+// Independent full decode via libvips of the actual C++ libpng fixture.
+const fs=require('fs'),sharp=require('sharp'),assert=require('node:assert/strict');
+(async()=>{const bytes=fs.readFileSync(process.argv[2]);assert.deepEqual([...bytes.subarray(0,8)],[137,80,78,71,13,10,26,10]);const image=sharp(bytes,{limitInputPixels:false,failOn:'warning'}),meta=await image.metadata();assert.equal(meta.width,1440);assert.equal(meta.height,70200);const stats=await image.stats();for(const [i,value]of [17,83,201].entries()){assert.equal(stats.channels[i].min,value);assert.equal(stats.channels[i].max,value);}console.log('Independent libvips full PNG decode passed at 1440x70200; not a GPU inference or benchmark.');})().catch(e=>{console.error(e);process.exitCode=1;});

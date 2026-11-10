@@ -21,4 +21,5 @@ const modelsPath = isDev
   ? resolve(join(appRootDir, "resources", "models"))
   : resolve(join(dirname(appRootDir), "models"));
 
-export { execPath, modelsPath };
+const enhancedExecPath=resolve(join(binariesPath,process.platform==='win32'?'upscayl-jm.exe':'upscayl-jm'));
+export { execPath, enhancedExecPath, modelsPath };

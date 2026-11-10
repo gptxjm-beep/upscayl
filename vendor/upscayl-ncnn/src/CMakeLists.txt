@@ -267,6 +267,26 @@ if(NOT USE_SYSTEM_WEBP)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libwebp/src)
 endif()
 
+# Static, pinned streaming PNG encoder. WIC remains the normal Windows path.
+set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+# zlib's CMake renames zconf.h. Configure an owned build copy so the pinned
+# checkout stays clean and subsequent builds never require a destructive reset.
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/zlib/" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/zlib-source" PATTERN ".git" EXCLUDE PATTERN "*.included" EXCLUDE)
+add_subdirectory("${CMAKE_CURRENT_BINARY_DIR}/zlib-source" "${CMAKE_CURRENT_BINARY_DIR}/zlib" EXCLUDE_FROM_ALL)
+set(ZLIB_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/zlib-source" CACHE STRING "" FORCE)
+set(ZLIB_LIBRARY zlibstatic CACHE STRING "" FORCE)
+if(NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlibstatic)
+endif()
+set(PNG_SHARED OFF CACHE BOOL "" FORCE)
+set(PNG_STATIC ON CACHE BOOL "" FORCE)
+set(PNG_TESTS OFF CACHE BOOL "" FORCE)
+set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
+set(PNG_EXECUTABLES OFF CACHE BOOL "" FORCE)
+set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+add_subdirectory(libpng EXCLUDE_FROM_ALL)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libpng ${CMAKE_CURRENT_BINARY_DIR}/libpng)
+
 # look for vulkan compute shader and compile
 set(SHADER_SPV_HEX_FILES)
 
@@ -281,7 +301,7 @@ add_executable(upscayl-bin main.cpp realesrgan.cpp)
 
 add_dependencies(upscayl-bin generate-spirv)
 
-set(REALESRGAN_LINK_LIBRARIES ncnn webp ${Vulkan_LIBRARY})
+set(REALESRGAN_LINK_LIBRARIES ncnn webp png_static ${Vulkan_LIBRARY})
 
 if(USE_STATIC_MOLTENVK)
     find_library(CoreFoundation NAMES CoreFoundation)
@@ -314,3 +334,8 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(upscayl-bin -static-libstdc++)
 endif()
 
+
+# Codec-only functional tests: no Vulkan device and no performance benchmark.
+add_executable(jm-png-test ../../../tests/jobs/png-stream.cpp)
+target_link_libraries(jm-png-test png_static)
+target_include_directories(jm-png-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

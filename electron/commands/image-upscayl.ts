@@ -1,3 +1,5 @@
+import sharp from 'sharp';
+import { temporaryOutput,validateOutput,adoptOutput } from '../jobs/output';
 import fs from "fs";
 import { modelsPath } from "../utils/get-resource-paths";
 import { ELECTRON_COMMANDS } from "../../common/electron-commands";
@@ -59,6 +61,11 @@ const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
     saveImageAs;
 
   const isDefaultModel = model in MODELS;
+  const sourceInfo=await sharp(imagePath,{limitInputPixels:false}).metadata().catch(error=>{mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_ERROR,String(error));return null;});
+  if(!sourceInfo?.width||!sourceInfo.height)return;
+  const expectedWidth=useCustomWidth?Number(customWidth):sourceInfo.width*Number(scale);
+  const expectedHeight=useCustomWidth?Math.floor(sourceInfo.height*expectedWidth/sourceInfo.width):sourceInfo.height*Number(scale);
+  const workFile=temporaryOutput(outFile);
 
   // Check if filename is too long
   if (outFile.length >= 255) {
@@ -78,7 +85,8 @@ const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
 
   // UPSCALE
   if (fs.existsSync(outFile) && !overwrite) {
-    // If already upscayled, just output that file
+    // Reuse only a fully decodable output with the expected dimensions.
+    try{await validateOutput(outFile,expectedWidth,expectedHeight,saveImageAs);}catch(error){mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_ERROR,String(error));return;}
     logit("✅ Already upscayled at: ", outFile);
     mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_DONE, outFile);
   } else {
@@ -104,7 +112,7 @@ const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
       getSingleImageArguments({
         inputDir: decodeURIComponent(inputDir),
         fileNameWithExt: decodeURIComponent(fileNameWithExt),
-        outFile,
+        outFile:workFile,
         modelsPath: isDefaultModel
           ? modelsPath
           : (savedCustomModelsPath ?? modelsPath),
@@ -118,6 +126,7 @@ const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
         ttaMode,
       }),
       logit,
+      true,
     );
 
     setChildProcesses(upscayl);
@@ -152,28 +161,19 @@ const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
       upscayl.kill();
       return;
     };
-    const onClose = async () => {
-      if (!failed && !stopped) {
-        logit("💯 Done upscaling");
-        // Free up memory
-        upscayl.kill();
+    const onClose = async (code:number|null,signal:string|null) => {
+      try{
+        if(stopped){mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_PROGRESS,'');return;}
+        if(failed)return;
+        if(code!==0||signal)throw Error(`Processing engine exited with code ${code}, signal ${signal||'none'}.`);
+        if(payload.copyMetadata)await copyMetadata(imagePath,workFile);
+        await validateOutput(workFile,expectedWidth,expectedHeight,saveImageAs);
+        adoptOutput(workFile,outFile,overwrite);
         mainWindow.setProgressBar(-1);
-        if (payload.copyMetadata) {
-          logit("🏷️ Copying metadata...");
-          try {
-            await copyMetadata(imagePath, outFile);
-            logit("✅ Metadata copied to: ", outFile);
-          } catch (error) {
-            logit("❌ Error copying metadata: ", error);
-            mainWindow.webContents.send(
-              ELECTRON_COMMANDS.METADATA_ERROR,
-              error,
-            );
-          }
-        }
-        mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_DONE, outFile);
-        showNotification("Upscayl", "Image upscayled successfully!");
-      }
+        mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_DONE,outFile);
+        showNotification('Upscayl','Image upscayled successfully!');
+      }catch(error){mainWindow.setProgressBar(-1);mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_ERROR,String(error));}
+      finally{try{fs.rmSync(workFile,{force:true});}catch(error){logit('Temporary output cleanup failed',String(error));}}
     };
 
     upscayl.process.stderr.on("data", onData);
