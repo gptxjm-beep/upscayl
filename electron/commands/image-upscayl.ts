@@ -1,3 +1,4 @@
+import { verifiedOptionalModel } from '../jobs/model-files';
 import sharp from 'sharp';
 import { temporaryOutput,validateOutput,adoptOutput } from '../jobs/output';
 import fs from "fs";
@@ -61,6 +62,7 @@ const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
     saveImageAs;
 
   const isDefaultModel = model in MODELS;
+  try{await verifiedOptionalModel(isDefaultModel?modelsPath:(savedCustomModelsPath??modelsPath),model);}catch(error){mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_ERROR,String(error));return;}
   const sourceInfo=await sharp(imagePath,{limitInputPixels:false}).metadata().catch(error=>{mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_ERROR,String(error));return null;});
   if(!sourceInfo?.width||!sourceInfo.height)return;
   const expectedWidth=useCustomWidth?Number(customWidth):sourceInfo.width*Number(scale);

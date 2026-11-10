@@ -1,3 +1,5 @@
+import path from 'path';
+import { verifiedOptionalModel } from '../jobs/model-files';
 import fs from "fs";
 import logit from "./logit";
 import { MessageBoxOptions, app, dialog } from "electron";
@@ -68,6 +70,12 @@ const getModels = async (folderPath: string | undefined) => {
     return null;
   }
 
+  const accepted:string[]=[];
+  for(const id of models){
+    if(!fs.existsSync(path.join(folderPath,id+'.param'))||!fs.existsSync(path.join(folderPath,id+'.bin')))continue;
+    try{await verifiedOptionalModel(folderPath,id);accepted.push(id);}catch(error){logit('Optional model unavailable',String(error));}
+  }
+  models=accepted;
   logit("🔎 Detected Custom Models: ", models);
   return models;
 };

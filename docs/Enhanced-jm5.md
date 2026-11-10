@@ -17,11 +17,11 @@ Limits: these are controlled codec/functional fixtures, not the user's original 
 
 ## Models under evaluation
 
-Official release 1.0.0 files downloaded for evaluation: IllustrationJaNai V1 ESRGAN 4x and MangaJaNai 1600p V1 ESRGAN 2x. Illustration's original SHA-256 matches OpenModelDB. Both are ESRGAN/RRDB 64nf/23nb; Manga 2x uses pixel unshuffle before a 4x body and requires alignment, so simply adding a name/scale is insufficient. Initial inference exposed a missing Reorg operator in the engine; compatibility is not yet claimed. The version-specific LICENSE at the author's 1.0.0 tag is CC-BY-NC-SA-4.0, even though the current default-branch license differs. Optional weights will not be silently bundled with the app.
+Official release 1.0.0 files downloaded for evaluation: IllustrationJaNai V1 ESRGAN 4x and MangaJaNai 1600p V1 ESRGAN 2x. Illustration's original SHA-256 matches OpenModelDB. Both are ESRGAN/RRDB 64nf/23nb; Manga 2x uses pixel unshuffle before a 4x body and requires alignment, so simply adding a name/scale is insufficient. The native path now enables Reorg, honors explicit native scale on Windows, aligns 2x pixel-unshuffle inputs and validates the extracted tensor shape. Tiny-image reflection and odd last-tile alignment receive explicit boundary handling. Original files, conversion/reference tooling and an opt-in license-acknowledged import gate are implemented in `tools/models`. Broader functional cases are still running; compatibility is claimed only for cases recorded in passed import manifests. The version-specific LICENSE at the author's 1.0.0 tag is CC-BY-NC-SA-4.0, even though the current default-branch license differs. Optional weights will not be silently bundled with the app.
 
 Manhwa Null 1x has published source SHA-256 `7d7cee6e08f72cd231fa0d5083e7ec13fb464eff82cae73e0b1292ac6fe51f87`; its official Proton Drive source is blocked by this environment's network policy. No compatible conversion or quality claim is made without the original weights. No invented MangaOra entry is added.
 
-Two-stage scheduling and drag-and-drop work remain separate stages. GPU benchmarks must run on suitable hardware, using identical inputs/settings and at least three alternating runs; caches are not assumed flushed.
+Two-stage scheduling remains a separate stage; drag-and-drop is implemented independently below. GPU benchmarks must run on suitable hardware, using identical inputs/settings and at least three alternating runs; caches are not assumed flushed.
 
 ## Stage 4 (isolated early repair) — native file drag-and-drop
 
@@ -30,3 +30,5 @@ Electron 33 does not provide File.path. The preload exposes only the official we
 Native picker paths remain filesystem paths through Single and Double; literal '%' and '%20' filenames are not URI-decoded again. Select Image also keeps the previous image until validation succeeds or the chooser is cancelled.
 
 Local tests passed for backend path/content validation and the real native-backed File → Electron preload bridge → preview flow: JPG, PNG, WEBP, empty MIME, Arabic/spaces/%20/deep paths, invalid input preservation, outside drops, links, retry, Select Image and navigation rejection. Linux's documented Electron/libvips assertion requires executing the same validation function in external Node during this local UI test; this is explicit in test output. The Windows packaged test uses the real main IPC handler and bundled Sharp, with no such override, and additionally attempts preview of the controlled long PNG. Packaged-Windows results remain pending until that workflow passes.
+
+Windows run 42922904693 passed persistent sessions, native protocol, WIC and the 1440×70200 streaming PNG/full independent decode checks. Packaging and packaged UI checks must still pass; these codec checks are not GPU performance tests.

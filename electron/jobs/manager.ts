@@ -1,3 +1,4 @@
+import { verifiedOptionalModel } from './model-files';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -114,6 +115,7 @@ export class BatchManager extends EventEmitter {
   }
   private async modelHash(dir: string, model: string) {
     if(path.basename(model) !== model || /[\\/:]/.test(model)) throw new Error('Invalid model name');
+    const verified=await verifiedOptionalModel(dir,model);if(verified)return verified;
     return (await hash(path.join(dir,model+'.param'))) + ':' + (await hash(path.join(dir,model+'.bin')));
   }
   async restart(id: string, replacementEngine?:string, replacementModels?:string, currentSettings?:BatchUpscaylPayload) {

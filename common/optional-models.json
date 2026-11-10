@@ -1,0 +1,29 @@
+{
+  "1x-manhwa-null": {
+    "name": "Manhwa Null",
+    "nativeScale": 1,
+    "inputMultiple": 1,
+    "source": "https://openmodeldb.info/models/1x-Manhwa-Null",
+    "license": "CC-BY-NC-SA-4.0",
+    "sourceSha256": "7d7cee6e08f72cd231fa0d5083e7ec13fb464eff82cae73e0b1292ac6fe51f87",
+    "author": "null-llun"
+  },
+  "4x-illustrationjanai-v1-esrgan": {
+    "name": "IllustrationJaNai V1 ESRGAN",
+    "nativeScale": 4,
+    "inputMultiple": 1,
+    "source": "https://github.com/the-database/MangaJaNai/releases/tag/1.0.0",
+    "license": "CC-BY-NC-SA-4.0",
+    "sourceSha256": "c67e76c4b5f0474d5116e5f3885202d1bee68187e1389f82bb90baace24152f8",
+    "author": "the-database"
+  },
+  "2x-mangajanai-1600p-v1-esrgan": {
+    "name": "MangaJaNai V1 ESRGAN (1600p)",
+    "nativeScale": 2,
+    "inputMultiple": 2,
+    "source": "https://github.com/the-database/MangaJaNai/releases/tag/1.0.0",
+    "license": "CC-BY-NC-SA-4.0",
+    "sourceSha256": "6f5923f812dbc5d6aeed727635a21e74cacddce595afe6135cbd95078f6eee44",
+    "author": "the-database"
+  }
+}

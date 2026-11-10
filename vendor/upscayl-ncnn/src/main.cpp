@@ -672,6 +672,8 @@ int main(int argc, char **argv)
     path_t inputpath;
     path_t outputpath;
     int scale = 4;
+    bool native_scale_provided=false;
+    int input_multiple=1;
     int resizeWidth;
     int resizeHeight;
     int resizeMode;
@@ -694,7 +696,7 @@ int main(int argc, char **argv)
 #if _WIN32
     setlocale(LC_ALL, "");
     wchar_t opt;
-    while ((opt = getopt(argc, argv, L"i:o:z:s:r:w:t:c:m:n:g:j:f:Q:L:vxh")) != (wchar_t)-1)
+    while ((opt = getopt(argc, argv, L"i:o:z:a:s:r:w:t:c:m:n:g:j:f:Q:L:vxh")) != (wchar_t)-1)
     {
         switch (opt)
         {
@@ -706,8 +708,9 @@ int main(int argc, char **argv)
         case L'o':
             outputpath = optarg;
             break;
+        case L'a': input_multiple=_wtoi(optarg);break;
         case L'z':
-            scale = _wtoi(optarg);
+            native_scale_provided=true;scale = _wtoi(optarg);
             break;
         case L's':
             outputScale = _wtoi(optarg);
@@ -782,7 +785,7 @@ int main(int argc, char **argv)
 #else  // _WIN32
     int opt;
     fprintf(stderr, "🚀 Starting Upscayl - Copyright © 2024\n");
-    while ((opt = getopt(argc, argv, "i:o:z:s:r:w:t:c:m:n:g:j:f:Q:L:vxh")) != -1)
+    while ((opt = getopt(argc, argv, "i:o:z:a:s:r:w:t:c:m:n:g:j:f:Q:L:vxh")) != -1)
     {
         switch (opt)
         {
@@ -794,8 +797,9 @@ int main(int argc, char **argv)
         case 'o':
             outputpath = optarg;
             break;
+        case 'a': input_multiple=atoi(optarg);break;
         case 'z':
-            scale = atoi(optarg);
+            native_scale_provided=true;scale = atoi(optarg);
             break;
         case 's':
             outputScale = atoi(optarg);
@@ -1013,17 +1017,8 @@ int main(int argc, char **argv)
     }
 
     jm::Monitor monitor;
-    int prepadding = 0;
-
-    if (model.find(PATHSTR("models")) != path_t::npos || model.find(PATHSTR("models2")) != path_t::npos)
-    {
-        prepadding = 10;
-    }
-    else
-    {
-        fprintf(stderr, "🚨 Error: Unknown model dir type. Make sure that the model directory is called 'models' with *.param and *.bin files inside it.\n");
-        return -1;
-    }
+    const int prepadding=10; // All supported networks are declared ESRGAN/RRDB.
+    if(input_multiple!=1&&input_multiple!=2&&input_multiple!=4){fprintf(stderr,"Invalid model input alignment\n");return -1;}
 
     // if (modelname.find(PATHSTR("realesrgan-x4plus")) != path_t::npos
     //     || modelname.find(PATHSTR("realesrnet-x4plus")) != path_t::npos
@@ -1035,76 +1030,27 @@ int main(int argc, char **argv)
     //     return -1;
     // }
 
+    // Application metadata is authoritative; filename inference remains only
+    // for legacy custom CLI models which did not supply -z.
+    if(!native_scale_provided){
+        if(modelname.find(PATHSTR("16x"))!=path_t::npos||modelname.find(PATHSTR("x16"))!=path_t::npos)scale=16;
+        else if(modelname.find(PATHSTR("1x"))!=path_t::npos||modelname.find(PATHSTR("x1"))!=path_t::npos)scale=1;
+        else if(modelname.find(PATHSTR("2x"))!=path_t::npos||modelname.find(PATHSTR("x2"))!=path_t::npos)scale=2;
+        else if(modelname.find(PATHSTR("3x"))!=path_t::npos||modelname.find(PATHSTR("x3"))!=path_t::npos)scale=3;
+        else if(modelname.find(PATHSTR("4x"))!=path_t::npos||modelname.find(PATHSTR("x4"))!=path_t::npos)scale=4;
+        else if(modelname.find(PATHSTR("8x"))!=path_t::npos||modelname.find(PATHSTR("x8"))!=path_t::npos)scale=8;
+    }
+    path_t stem=modelname;
+    if(modelname==PATHSTR("realesr-animevideov3")){
 #if _WIN32
-    wchar_t parampath[256];
-    wchar_t modelpath[256];
-
-    if (modelname == PATHSTR("realesr-animevideov3"))
-    {
-        swprintf(parampath, 256, L"%s/%s-x%s.param", model.c_str(), modelname.c_str(), std::to_string(scale));
-        swprintf(modelpath, 256, L"%s/%s-x%s.bin", model.c_str(), modelname.c_str(), std::to_string(scale));
-    }
-    else
-    {
-        swprintf(parampath, 256, L"%s/%s.param", model.c_str(), modelname.c_str());
-        swprintf(modelpath, 256, L"%s/%s.bin", model.c_str(), modelname.c_str());
-    }
-
+        stem+=PATHSTR("-x")+std::to_wstring(scale);
 #else
-    char parampath[256];
-    char modelpath[256];
-
-    // Check if modelname includes scale
-    if (modelname.find(PATHSTR("x1")) != path_t::npos || modelname.find(PATHSTR("1x")) != path_t::npos)
-    {
-        fprintf(stderr, "✨ Detected scale x1\n");
-        scale = 1;
-    }
-    else if (modelname.find(PATHSTR("x2")) != path_t::npos || modelname.find(PATHSTR("2x")) != path_t::npos)
-    {
-        fprintf(stderr, "✨ Detected scale x2\n");
-        scale = 2;
-    }
-    else if (modelname.find(PATHSTR("x3")) != path_t::npos || modelname.find(PATHSTR("3x")) != path_t::npos)
-    {
-        fprintf(stderr, "✨ Detected scale x3\n");
-        scale = 3;
-    }
-    else if (modelname.find(PATHSTR("x4")) != path_t::npos || modelname.find(PATHSTR("4x")) != path_t::npos)
-    {
-        fprintf(stderr, "✨ Detected scale x4\n");
-        scale = 4;
-    }
-    else if (modelname.find(PATHSTR("x8")) != path_t::npos || modelname.find(PATHSTR("8x")) != path_t::npos)
-    {
-        fprintf(stderr, "✨ Detected scale x8\n");
-        scale = 8;
-    }
-    else if (modelname.find(PATHSTR("x16")) != path_t::npos || modelname.find(PATHSTR("16x")) != path_t::npos)
-    {
-        fprintf(stderr, "✨ Detected scale x16\n");
-        scale = 16;
-    }
-
-    if (scale == 4)
-    {
-        fprintf(stderr, "✨ Using the default scale x4\n");
-    }
-
-    if (modelname == PATHSTR("realesr-animevideov3"))
-    {
-        sprintf(parampath, "%s/%s-x%s.param", model.c_str(), modelname.c_str(), std::to_string(scale).c_str());
-        sprintf(modelpath, "%s/%s-x%s.bin", model.c_str(), modelname.c_str(), std::to_string(scale).c_str());
-    }
-    else
-    {
-        sprintf(parampath, "%s/%s.param", model.c_str(), modelname.c_str());
-        sprintf(modelpath, "%s/%s.bin", model.c_str(), modelname.c_str());
-    }
+        stem+=PATHSTR("-x")+std::to_string(scale);
 #endif
+    }
+    path_t paramfullpath=sanitize_filepath((fs::path(model)/(stem+PATHSTR(".param"))).native());
+    path_t modelfullpath=sanitize_filepath((fs::path(model)/(stem+PATHSTR(".bin"))).native());
 
-    path_t paramfullpath = sanitize_filepath(parampath);
-    path_t modelfullpath = sanitize_filepath(modelpath);
 
 #if _WIN32
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -1161,8 +1107,7 @@ int main(int argc, char **argv)
         uint32_t heap_budget = ncnn::get_gpu_device(gpuid[i])->get_heap_budget();
 
         // more fine-grained tilesize policy here
-        if (model.find(PATHSTR("models")) != path_t::npos)
-        {
+        { // ESRGAN policy also applies to custom directories.
             if (heap_budget > 1900)
                 tilesize[i] = 200;
             else if (heap_budget > 550)
@@ -1186,6 +1131,7 @@ int main(int argc, char **argv)
             realesrgan[i]->scale = scale;
             realesrgan[i]->tilesize = tilesize[i];
             realesrgan[i]->prepadding = prepadding;
+            realesrgan[i]->input_multiple = input_multiple;
         }
 
         // main routine

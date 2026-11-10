@@ -1,3 +1,4 @@
+import { modelMetadata } from '../../common/model-metadata';
 import getModelScale from "../../common/check-model-scale";
 import { ImageFormat } from "../types/types";
 const slash: string = process.platform === "win32" ? "\\" : "/";
@@ -30,8 +31,11 @@ export const getSingleImageArguments = ({
   ttaMode: boolean;
 }) => {
   const modelScale = getModelScale(model);
+  const inputMultiple=modelMetadata(model)?.inputMultiple||1;
   let includeScale = modelScale !== scale && !customWidth;
   return [
+    '-z',modelScale,
+    ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
     inputDir + slash + fileNameWithExt,
@@ -91,8 +95,11 @@ export const getDoubleUpscaleArguments = ({
   tileSize: number;
 }) => {
   const modelScale = getModelScale(model);
+  const inputMultiple=modelMetadata(model)?.inputMultiple||1;
   let includeScale = modelScale !== scale && !customWidth;
   return [
+    '-z',modelScale,
+    ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
     inputDir + slash + fullfileName,
@@ -144,8 +151,11 @@ export const getDoubleUpscaleSecondPassArguments = ({
   ttaMode: boolean;
 }) => {
   const modelScale = getModelScale(model);
+  const inputMultiple=modelMetadata(model)?.inputMultiple||1;
   let includeScale = modelScale !== scale && !customWidth;
   return [
+    '-z',modelScale,
+    ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
     outFile,
@@ -207,9 +217,12 @@ export const getBatchArguments = ({
   ttaMode: boolean;
 }) => {
   const modelScale = getModelScale(model);
+  const inputMultiple=modelMetadata(model)?.inputMultiple||1;
   let includeScale = modelScale !== scale && !customWidth;
 
   return [
+    '-z',modelScale,
+    ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
     inputDir,

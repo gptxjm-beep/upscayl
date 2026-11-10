@@ -1,0 +1,5 @@
+# Install torch 2.6.0 and torchvision 0.21.0 from the official PyTorch CPU index first.
+spandrel==0.4.1
+pnnx==20250530
+numpy==2.2.6
+Pillow==11.2.1

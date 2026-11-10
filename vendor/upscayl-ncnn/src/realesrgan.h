@@ -29,6 +29,7 @@ public:
     int scale;
     int tilesize;
     int prepadding;
+    int input_multiple = 1;
 
 private:
     ncnn::Net net;

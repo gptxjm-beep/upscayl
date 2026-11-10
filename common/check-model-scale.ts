@@ -1,17 +1,8 @@
-/**
- * Get the scale of the model based on the model name
- * @param model The model name
- * @returns The initial scale of the model
- */
-export default function getModelScale(model: string) {
-  const modelName = model.toLowerCase();
-  let initialScale = "4";
-  if (modelName.includes("x2") || modelName.includes("2x")) {
-    initialScale = "2";
-  } else if (modelName.includes("x3") || modelName.includes("3x")) {
-    initialScale = "3";
-  } else {
-    initialScale = "4";
-  }
-  return initialScale;
+import { modelMetadata } from './model-metadata';
+export default function getModelScale(model:string):string {
+ const metadata=modelMetadata(model);if(metadata)return String(metadata.nativeScale);
+ // Preserve legacy custom-model compatibility. Curated imports never rely on
+ // this heuristic: they have pinned nativeScale and verified file manifests.
+ const match=/(?:^|[^0-9])(?:x(16|8|4|3|2|1)(?=[^0-9]|$)|(16|8|4|3|2|1)x)/i.exec(model);
+ return match?.[1]||match?.[2]||'4';
 }

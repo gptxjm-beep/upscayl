@@ -1,3 +1,5 @@
+import { verifiedOptionalModel } from '../jobs/model-files';
+import { OPTIONAL_MODELS } from '../../common/model-metadata';
 import { parse } from "path";
 import { getMainWindow } from "../main-window";
 import {
@@ -37,6 +39,7 @@ const doubleUpscayl = async (event, payload: DoubleUpscaylPayload) => {
   const model = payload.model;
   const gpuId = payload.gpuId as string;
   const saveImageAs = payload.saveImageAs as ImageFormat;
+  try{await verifiedOptionalModel(model in MODELS?modelsPath:(savedCustomModelsPath??modelsPath),model);}catch(error){mainWindow.webContents.send(ELECTRON_COMMANDS.UPSCAYL_ERROR,String(error));return;}
   const imagePath = decodePath(payload.imagePath);
   let inputDir = getDirectoryFromPath(imagePath);
   let outputDir = decodePath(payload.outputPath);
@@ -74,6 +77,7 @@ const doubleUpscayl = async (event, payload: DoubleUpscaylPayload) => {
       tileSize,
     }),
     logit,
+    model in OPTIONAL_MODELS,
   );
 
   let upscayl2: ReturnType<typeof spawnUpscayl>;
@@ -212,6 +216,7 @@ const doubleUpscayl = async (event, payload: DoubleUpscaylPayload) => {
           ttaMode,
         }),
         logit,
+        model in OPTIONAL_MODELS,
       );
       logit("🚀 Upscaling Second Pass");
       childProcesses.push(upscayl2);

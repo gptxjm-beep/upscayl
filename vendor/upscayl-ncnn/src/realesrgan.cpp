@@ -241,8 +241,8 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
     {
         const int tile_h_nopad = std::min((yi + 1) * TILE_SIZE_Y, h) - yi * TILE_SIZE_Y;
 
-        int in_tile_y0 = std::max(yi * TILE_SIZE_Y - prepadding, 0);
-        int in_tile_y1 = std::min((yi + 1) * TILE_SIZE_Y + prepadding, h);
+        int in_tile_y0 = std::max(yi * TILE_SIZE_Y - prepadding - (input_multiple-1), 0);
+        int in_tile_y1 = std::min((yi + 1) * TILE_SIZE_Y + prepadding + (input_multiple-1), h);
 
         ncnn::Mat in;
         if (opt.use_fp16_storage && opt.use_int8_storage)
@@ -311,6 +311,10 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
                     int tile_x1 = std::min((xi + 1) * TILE_SIZE_X, w) + prepadding;
                     int tile_y0 = yi * TILE_SIZE_Y - prepadding;
                     int tile_y1 = std::min((yi + 1) * TILE_SIZE_Y, h) + prepadding;
+                    if(input_multiple>1){
+                        tile_x1+=(input_multiple-(tile_x1-tile_x0)%input_multiple)%input_multiple;
+                        tile_y1+=(input_multiple-(tile_y1-tile_y0)%input_multiple)%input_multiple;
+                    }
 
                     in_tile_gpu[0].create(tile_x1 - tile_x0, tile_y1 - tile_y0, 3, in_out_tile_elemsize, 1, blob_vkallocator);
                     in_tile_gpu[1].create(tile_x1 - tile_x0, tile_y1 - tile_y0, 3, in_out_tile_elemsize, 1, blob_vkallocator);
@@ -348,7 +352,7 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
                     constants[6].i = prepadding;
                     constants[7].i = prepadding;
                     constants[8].i = xi * TILE_SIZE_X;
-                    constants[9].i = std::min(yi * TILE_SIZE_Y, prepadding);
+                    constants[9].i = yi * TILE_SIZE_Y - in_tile_y0;
                     constants[10].i = channels;
                     constants[11].i = in_alpha_tile_gpu.w;
                     constants[12].i = in_alpha_tile_gpu.h;
@@ -374,6 +378,7 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
                     if(ex.input("data", in_tile_gpu[ti]) != 0) return -1;
 
                     if(ex.extract("output", out_tile_gpu[ti], cmd) != 0) return -1;
+                    if(out_tile_gpu[ti].w!=in_tile_gpu[ti].w*scale||out_tile_gpu[ti].h!=in_tile_gpu[ti].h*scale||out_tile_gpu[ti].c*out_tile_gpu[ti].elempack!=3){fprintf(stderr,"[model] TTA output geometry mismatch for native scale %d\n",scale);return -3;}
 
                     {
                         cmd.submit_and_wait();
@@ -450,6 +455,10 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
                     int tile_x1 = std::min((xi + 1) * TILE_SIZE_X, w) + prepadding;
                     int tile_y0 = yi * TILE_SIZE_Y - prepadding;
                     int tile_y1 = std::min((yi + 1) * TILE_SIZE_Y, h) + prepadding;
+                    if(input_multiple>1){
+                        tile_x1+=(input_multiple-(tile_x1-tile_x0)%input_multiple)%input_multiple;
+                        tile_y1+=(input_multiple-(tile_y1-tile_y0)%input_multiple)%input_multiple;
+                    }
 
                     in_tile_gpu.create(tile_x1 - tile_x0, tile_y1 - tile_y0, 3, in_out_tile_elemsize, 1, blob_vkallocator);
 
@@ -473,7 +482,7 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
                     constants[6].i = prepadding;
                     constants[7].i = prepadding;
                     constants[8].i = xi * TILE_SIZE_X;
-                    constants[9].i = std::min(yi * TILE_SIZE_Y, prepadding);
+                    constants[9].i = yi * TILE_SIZE_Y - in_tile_y0;
                     constants[10].i = channels;
                     constants[11].i = in_alpha_tile_gpu.w;
                     constants[12].i = in_alpha_tile_gpu.h;
@@ -498,6 +507,7 @@ int RealESRGAN::process(const ncnn::Mat &inimage, ncnn::Mat &outimage) const
                     if(ex.input("data", in_tile_gpu) != 0) return -1;
 
                     if(ex.extract("output", out_tile_gpu, cmd) != 0) return -1;
+                    if(out_tile_gpu.w!=in_tile_gpu.w*scale||out_tile_gpu.h!=in_tile_gpu.h*scale||out_tile_gpu.c*out_tile_gpu.elempack!=3){fprintf(stderr,"[model] output geometry mismatch for native scale %d\n",scale);return -3;}
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;

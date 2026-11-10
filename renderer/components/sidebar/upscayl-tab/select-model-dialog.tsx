@@ -1,4 +1,5 @@
 "use client";
+import { modelDisplayName } from "@common/model-metadata";
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ const SelectModelDialog = () => {
               ? t(
                   `APP.MODEL_SELECTION.MODELS.${MODELS[selectedModelId]?.id}.NAME` as any,
                 )
-              : selectedModelId}
+              : modelDisplayName(selectedModelId)}
           </button>
         </DialogTrigger>
         <DialogContent className="z-50 sm:max-w-lg">
@@ -121,11 +122,11 @@ const SelectModelDialog = () => {
               {customModelIds.map((customModel) => {
                 return (
                   <button
-                    key={customModel}
+                    key={modelDisplayName(customModel)}
                     className="btn h-auto w-full flex-col items-start p-4"
                     onClick={() => handleModelSelect(customModel)}
                   >
-                    {customModel}
+                    {modelDisplayName(customModel)}
                   </button>
                 );
               })}

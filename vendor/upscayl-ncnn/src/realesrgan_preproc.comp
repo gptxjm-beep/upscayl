@@ -44,6 +44,17 @@ layout (push_constant) uniform parameter
     int alphah;
 } p;
 
+// The usual single reflection is unchanged. Repeat only for tiny images
+// whose border exceeds their dimension, avoiding negative buffer indices.
+int reflect_index(int coordinate,int length)
+{
+    if(length<=1)return 0;
+    int period=2*(length-1);
+    int remainder=coordinate%period;
+    if(remainder<0)remainder+=period;
+    return remainder<length?remainder:period-remainder;
+}
+
 void main()
 {
     int gx = int(gl_GlobalInvocationID.x);
@@ -60,6 +71,8 @@ void main()
     y = abs(y);
     x = (p.w - 1) - abs(x - (p.w - 1));
     y = (p.h - 1) - abs(y - (p.h - 1));
+    if(x<0||x>=p.w)x=reflect_index(x,p.w);
+    if(y<0||y>=p.h)y=reflect_index(y,p.h);
 
 #if NCNN_int8_storage
     int v_offset = y * p.w + x;

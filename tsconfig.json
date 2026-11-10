@@ -9,6 +9,7 @@
     "strict": true,
     "noImplicitAny": false,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "paths": {
       "@electron/*": ["./electron/*"],
       "@/*": ["./renderer/*"],

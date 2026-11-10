@@ -1,5 +1,7 @@
 import { translationAtom } from "@/atoms/translations-atom";
 import { useCustomWidthAtom } from "@/atoms/user-settings-atom";
+import getModelScale from "@common/check-model-scale";
+import { selectedModelIdAtom } from "@/atoms/user-settings-atom";
 import { useAtomValue } from "jotai";
 
 type ImageScaleSelectProps = {
@@ -14,6 +16,7 @@ export function SelectImageScale({
   hideInfo,
 }: ImageScaleSelectProps) {
   const useCustomWidth = useAtomValue(useCustomWidthAtom);
+  const model = useAtomValue(selectedModelIdAtom);
   const t = useAtomValue(translationAtom);
 
   return (
@@ -62,6 +65,7 @@ export function SelectImageScale({
         </p>
       )}
 
+      {getModelScale(model) === "1" && Number(scale) > 1 && <p className="text-xs text-warning" role="note">A 1X model cleans at original size. Additional enlargement uses traditional resizing. / نموذج 1X ينظف بالحجم الأصلي؛ التكبير الإضافي تقليدي.</p>}
       <input
         type="range"
         min="1"
