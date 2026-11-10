@@ -6,7 +6,7 @@ test('File-backed input accepts JPG/PNG/WEBP, Arabic/spaces/deep paths and valid
  const deep=path.join(root,...Array.from({length:6},(_,i)=>'chapter-'+i));fs.mkdirSync(deep,{recursive:true});
  for(const format of ['jpg','png','webp']){
   const file=path.join(deep,'صورة %20 with spaces.'+format);await sharp({create:{width:17,height:11,channels:3,background:'#1b35a7'}}).toFile(file);
-  const result=await inspectImage(file);assert.equal(result.ok,true,JSON.stringify(result));assert.equal(result.width,17);assert.equal(result.height,11);assert.equal(result.path,fs.realpathSync(file));
+  const result=await inspectImage(file);assert.equal(result.ok,true,JSON.stringify(result));assert.equal(result.width,17);assert.equal(result.height,11);assert.equal(result.path,fs.realpathSync.native(file));
   assert.equal(decodePath(file),path.normalize(file));assert.equal(decodePath(pathToFileURL(file).href),path.normalize(file));
  }
 });
