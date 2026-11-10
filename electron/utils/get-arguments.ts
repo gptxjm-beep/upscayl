@@ -35,6 +35,7 @@ export const getSingleImageArguments = ({
   let includeScale = modelScale !== scale && !customWidth;
   return [
     '-z',modelScale,
+    ...(modelMetadata(model)?.fullPrecision?['-F','1']:[]),
     ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
@@ -99,6 +100,7 @@ export const getDoubleUpscaleArguments = ({
   let includeScale = modelScale !== scale && !customWidth;
   return [
     '-z',modelScale,
+    ...(modelMetadata(model)?.fullPrecision?['-F','1']:[]),
     ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
@@ -155,6 +157,7 @@ export const getDoubleUpscaleSecondPassArguments = ({
   let includeScale = modelScale !== scale && !customWidth;
   return [
     '-z',modelScale,
+    ...(modelMetadata(model)?.fullPrecision?['-F','1']:[]),
     ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",
@@ -222,6 +225,7 @@ export const getBatchArguments = ({
 
   return [
     '-z',modelScale,
+    ...(modelMetadata(model)?.fullPrecision?['-F','1']:[]),
     ...(inputMultiple>1?['-a',String(inputMultiple)]:[]),
     // INPUT IMAGE
     "-i",

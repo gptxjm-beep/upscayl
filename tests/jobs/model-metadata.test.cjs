@@ -9,6 +9,7 @@ test('authoritative 1X/2X/4X metadata reaches CLI independently of final scale',
   assert.equal(getScale(id),String(m.nativeScale));
   const args=getSingleImageArguments({inputDir:'input',fileNameWithExt:'page.png',outFile:'output.png',modelsPath:'custom',model:id,scale:'1',gpuId:'0',saveImageAs:'png',customWidth:'',tileSize:32,compression:'0',ttaMode:false});
   assert.equal(args[args.indexOf('-z')+1],String(m.nativeScale));
+  if(m.fullPrecision)assert.equal(args[args.indexOf('-F')+1],'1');
   if(m.inputMultiple>1)assert.equal(args[args.indexOf('-a')+1],String(m.inputMultiple));
  }
  assert.equal(getScale('model-x16'),'16');assert.equal(getScale('foo-2x'),'2');assert.equal(getScale('unknown'),'4');

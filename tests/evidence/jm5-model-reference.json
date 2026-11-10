@@ -1,0 +1,223 @@
+{
+  "scope": "Linux SwiftShader CPU Vulkan functional comparisons, not Windows/NVIDIA performance or real-page quality.",
+  "models": {
+    "4x-illustrationjanai-v1-esrgan": {
+      "version": 1,
+      "id": "4x-illustrationjanai-v1-esrgan",
+      "name": "IllustrationJaNai V1 ESRGAN",
+      "nativeScale": 4,
+      "inputMultiple": 1,
+      "source": "https://github.com/the-database/MangaJaNai/releases/tag/1.0.0",
+      "license": "CC-BY-NC-SA-4.0",
+      "sourceSha256": "c67e76c4b5f0474d5116e5f3885202d1bee68187e1389f82bb90baace24152f8",
+      "author": "the-database",
+      "licenseAccepted": true,
+      "files": {
+        "param": "825c52e275cefd050f34b778dd5b733376a7163d5ad73fd5dd757314e558c6f0",
+        "bin": "1d5f792cd58cf31213193467b0ab5f2ff9a2e3de63d3bf8caa8abe8eebe95df5"
+      },
+      "validation": {
+        "pipeline": "jm5-model-api-v1",
+        "passed": true,
+        "engineSha256": "dda7c0ecc7aea65ab67d7362f24d48c27d7ead01ead207d8d35760f94f37250f",
+        "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+        "torch": "2.6.0+cpu",
+        "conversionReused": true,
+        "optimizerSha256": "5b529bdfed11c825f58dfa4fdc48c97330579fbe3dd0d90620ebbb8be1c13e6a",
+        "cases": [
+          {
+            "input": [
+              32,
+              32
+            ],
+            "output": [
+              128,
+              128
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 3.0,
+            "mae": 0.18660481770833334,
+            "psnrDb": 55.34833017468371,
+            "passed": true
+          },
+          {
+            "input": [
+              17,
+              13
+            ],
+            "output": [
+              68,
+              52
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 1.0,
+            "mae": 0.09379713423831071,
+            "psnrDb": 58.40890791182883,
+            "passed": true
+          },
+          {
+            "input": [
+              35,
+              33
+            ],
+            "output": [
+              140,
+              132
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 3.0,
+            "mae": 0.2383838383838384,
+            "psnrDb": 54.062085313289465,
+            "passed": true
+          },
+          {
+            "input": [
+              8,
+              8
+            ],
+            "output": [
+              32,
+              32
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 1.0,
+            "mae": 0.04296875,
+            "psnrDb": 61.79927641021535,
+            "passed": true
+          },
+          {
+            "input": [
+              17,
+              19
+            ],
+            "output": [
+              68,
+              76
+            ],
+            "tile": 32,
+            "tta": true,
+            "maxAbs": 1.0,
+            "mae": 0.14357585139318885,
+            "psnrDb": 56.55998960575911,
+            "passed": true
+          }
+        ],
+        "scope": "Synthetic RGB functional compatibility only; real page quality and GPU performance remain to be measured."
+      }
+    },
+    "2x-mangajanai-1600p-v1-esrgan": {
+      "version": 1,
+      "id": "2x-mangajanai-1600p-v1-esrgan",
+      "name": "MangaJaNai V1 ESRGAN (1600p)",
+      "nativeScale": 2,
+      "inputMultiple": 2,
+      "source": "https://github.com/the-database/MangaJaNai/releases/tag/1.0.0",
+      "license": "CC-BY-NC-SA-4.0",
+      "sourceSha256": "6f5923f812dbc5d6aeed727635a21e74cacddce595afe6135cbd95078f6eee44",
+      "author": "the-database",
+      "fullPrecision": true,
+      "licenseAccepted": true,
+      "files": {
+        "param": "a764f80d9a3cce0a3488a2e14cd3bc2be9592f8f3c866c5dc324f49ed7a7b951",
+        "bin": "669d9353c11eb1077661e53ab1800bc5ff1fc978bbff183534a2a487c4eb2e2c"
+      },
+      "validation": {
+        "pipeline": "jm5-model-api-v1",
+        "passed": true,
+        "engineSha256": "56645a447e0c7eb4e87b75ae29e02c89bc9b4f588ff9ea3a3c7b8a08c34cadaf",
+        "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+        "torch": "2.6.0+cpu",
+        "conversionReused": true,
+        "optimizerSha256": "5b529bdfed11c825f58dfa4fdc48c97330579fbe3dd0d90620ebbb8be1c13e6a",
+        "cases": [
+          {
+            "input": [
+              32,
+              32
+            ],
+            "output": [
+              64,
+              64
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 1.0,
+            "mae": 0.005045572916666667,
+            "psnrDb": 71.10169874057094,
+            "passed": true
+          },
+          {
+            "input": [
+              17,
+              13
+            ],
+            "output": [
+              34,
+              26
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 1.0,
+            "mae": 0.0022624434389140274,
+            "psnrDb": 74.58502630217002,
+            "passed": true
+          },
+          {
+            "input": [
+              35,
+              33
+            ],
+            "output": [
+              70,
+              66
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 1.0,
+            "mae": 0.006132756132756133,
+            "psnrDb": 70.25424665429406,
+            "passed": true
+          },
+          {
+            "input": [
+              8,
+              8
+            ],
+            "output": [
+              16,
+              16
+            ],
+            "tile": 32,
+            "tta": false,
+            "maxAbs": 1.0,
+            "mae": 0.020833333333333332,
+            "psnrDb": 64.94321598243498,
+            "passed": true
+          },
+          {
+            "input": [
+              17,
+              19
+            ],
+            "output": [
+              34,
+              38
+            ],
+            "tile": 32,
+            "tta": true,
+            "maxAbs": 1.0,
+            "mae": 0.0025799793601651187,
+            "psnrDb": 74.01464129246638,
+            "passed": true
+          }
+        ],
+        "scope": "Synthetic RGB functional compatibility only; real page quality and GPU performance remain to be measured."
+      }
+    }
+  },
+  "manhwaNull": "Original Proton Drive download is blocked; no compatibility claim."
+}

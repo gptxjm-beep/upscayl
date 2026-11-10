@@ -95,6 +95,7 @@ def main():
             rgb=np.stack([(xx*7+yy*3)%256,(xx*2+yy*11)%256,(xx*13+yy*5)%256],axis=-1).astype(np.uint8)
             inp=work/f'case-{index}.png'; out=work/f'result-{index}.png'; Image.fromarray(rgb).save(inp)
             command=[a.engine.resolve(),'-i',inp,'-o',out,'-m',work,'-n',a.id,'-z',scale,'-a',alignment,'-g',a.gpu,'-t',32,'-f','png','-c',6]
+            if meta.get('fullPrecision'): command+=['-F','1']
             if tta: command+=['-x']
             run(command,work/f'engine-{index}.log')
             with Image.open(out) as decoded:

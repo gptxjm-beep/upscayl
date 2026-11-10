@@ -7,7 +7,7 @@ this directory and the exact sources/hashes in `common/optional-models.json`.
 Original author: the-database (MangaJaNai / IllustrationJaNai), null-llun (Manhwa Null).
 Conversion changes: Spandrel ESRGAN wrapper exported without shape-dependent
 padding/crop, input/output names normalized, NCNN 20240410 optimization with FP16
-weights. Native input alignment is declared separately from output scale.
+weights. Native input alignment is declared separately from output scale. MangaJaNai uses an explicit FP32 activation path: an aggressive tiny synthetic pattern exceeded the FP16 reference tolerance. The default Upscayl and Illustration precision paths remain unchanged. Its GPU memory and speed impact requires measurement on real hardware.
 
 ## Windows 11 preparation
 

@@ -24,6 +24,7 @@
     "source": "https://github.com/the-database/MangaJaNai/releases/tag/1.0.0",
     "license": "CC-BY-NC-SA-4.0",
     "sourceSha256": "6f5923f812dbc5d6aeed727635a21e74cacddce595afe6135cbd95078f6eee44",
-    "author": "the-database"
+    "author": "the-database",
+    "fullPrecision": true
   }
 }

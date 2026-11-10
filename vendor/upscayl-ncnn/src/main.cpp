@@ -674,6 +674,7 @@ int main(int argc, char **argv)
     int scale = 4;
     bool native_scale_provided=false;
     int input_multiple=1;
+    int precision_flags=0;
     int resizeWidth;
     int resizeHeight;
     int resizeMode;
@@ -696,10 +697,11 @@ int main(int argc, char **argv)
 #if _WIN32
     setlocale(LC_ALL, "");
     wchar_t opt;
-    while ((opt = getopt(argc, argv, L"i:o:z:a:s:r:w:t:c:m:n:g:j:f:Q:L:vxh")) != (wchar_t)-1)
+    while ((opt = getopt(argc, argv, L"i:o:z:a:s:r:w:t:c:m:n:g:j:f:F:Q:L:vxh")) != (wchar_t)-1)
     {
         switch (opt)
         {
+        case L'F': precision_flags=_wtoi(optarg);break;
         case L'Q': controlpath = optarg; break;
         case L'L': manifestpath = optarg; break;
         case L'i':
@@ -785,10 +787,11 @@ int main(int argc, char **argv)
 #else  // _WIN32
     int opt;
     fprintf(stderr, "🚀 Starting Upscayl - Copyright © 2024\n");
-    while ((opt = getopt(argc, argv, "i:o:z:a:s:r:w:t:c:m:n:g:j:f:Q:L:vxh")) != -1)
+    while ((opt = getopt(argc, argv, "i:o:z:a:s:r:w:t:c:m:n:g:j:f:F:Q:L:vxh")) != -1)
     {
         switch (opt)
         {
+        case 'F': precision_flags=atoi(optarg);break;
         case 'Q': controlpath = optarg; break;
         case 'L': manifestpath = optarg; break;
         case 'i':
@@ -1124,7 +1127,7 @@ int main(int argc, char **argv)
 
         for (int i = 0; i < use_gpu_count; i++)
         {
-            realesrgan[i] = new RealESRGAN(gpuid[i], tta_mode);
+            realesrgan[i] = new RealESRGAN(gpuid[i], tta_mode, (precision_flags&1)!=0);
 
             if(realesrgan[i]->load(paramfullpath, modelfullpath) != 0) return -1;
 
