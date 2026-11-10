@@ -3,6 +3,8 @@
 #include <vector>
 #include <cstdio>
 #include <stdexcept>
+#include <string>
+#include <utility>
 #include "png_stream.h"
 void verify(const std::filesystem::path& path,int w,int h,bool alpha){
 #if _WIN32
