@@ -60,7 +60,7 @@ jobs:
       - name: Compile TypeScript
         run: python tools/ci-command.py --label TypeScript -- npm run tsc
       - name: Test persistent sessions
-        run: python tools/ci-command.py --label sessions -- node --test tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs
+        run: python tools/ci-command.py --label sessions --timeout-seconds 240 -- node --test tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs
       - name: Test native admission and drain protocol
         shell: cmd
         run: cl /std:c++17 /utf-8 /EHsc tests\jobs\protocol.cpp /Fe:protocol-test.exe && protocol-test.exe
