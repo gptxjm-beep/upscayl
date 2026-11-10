@@ -1,0 +1,5 @@
+import { useAtomValue } from 'jotai';
+import { localeAtom } from '@/atoms/translations-atom';
+const en={first:'First AI Model',enable:'Use Two AI Models',second:'Select Second AI Model',finalScale:'Final Image Scale',large:'16X internal enlargement can require substantial memory. Unsafe dimensions will be blocked.',explanation:'Models run in the selected order. Final size is applied once. Classic Double Upscayl is disabled.',oneXResize:'A 1X model cleans at original size. Additional enlargement uses traditional resizing.'};
+const ar:typeof en={first:'النموذج الأول',enable:'استخدام نموذجين',second:'اختيار النموذج الثاني',finalScale:'مقياس الصورة النهائي',large:'قد يحتاج التكبير الداخلي 16X ذاكرة كبيرة. تُمنع الأبعاد غير الآمنة.',explanation:'تُشغّل النماذج بالترتيب المحدد ويُطبّق الحجم النهائي مرة واحدة. خيار Double Upscayl القديم معطّل في هذا الوضع.',oneXResize:'ينظف نموذج 1X الصورة بحجمها الأصلي. التكبير الإضافي يتم بتغيير الحجم التقليدي.'};
+export default function useTwoStageLabels(){return useAtomValue(localeAtom)==='ar'?ar:en;}

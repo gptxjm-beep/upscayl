@@ -1,3 +1,5 @@
+import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
+import { useTwoModelsAtom } from "@/atoms/two-stage-atom";
 import { translationAtom } from "@/atoms/translations-atom";
 import { useCustomWidthAtom } from "@/atoms/user-settings-atom";
 import getModelScale from "@common/check-model-scale";
@@ -16,6 +18,8 @@ export function SelectImageScale({
   hideInfo,
 }: ImageScaleSelectProps) {
   const useCustomWidth = useAtomValue(useCustomWidthAtom);
+  const labels=useTwoStageLabels();
+  const twoModels=useAtomValue(useTwoModelsAtom);
   const model = useAtomValue(selectedModelIdAtom);
   const t = useAtomValue(translationAtom);
 
@@ -25,7 +29,7 @@ export function SelectImageScale({
         {hideInfo ? (
           <>
             <p className="text-sm">
-              {t("SETTINGS.IMAGE_SCALE.TITLE")}{" "}
+              {twoModels?labels.finalScale:t("SETTINGS.IMAGE_SCALE.TITLE")}{" "}
               <span className="text-xs">({scale}X)</span>
             </p>
             {hideInfo && parseInt(scale) >= 6 && (
@@ -49,7 +53,7 @@ export function SelectImageScale({
           </>
         ) : (
           <p className="text-sm font-medium">
-            {t("SETTINGS.IMAGE_SCALE.TITLE")} ({scale}X){" "}
+            {twoModels?labels.finalScale:t("SETTINGS.IMAGE_SCALE.TITLE")} ({scale}X){" "}
             {useCustomWidth && "DISABLED"}
           </p>
         )}
@@ -65,7 +69,7 @@ export function SelectImageScale({
         </p>
       )}
 
-      {getModelScale(model) === "1" && Number(scale) > 1 && <p className="text-xs text-warning" role="note">A 1X model cleans at original size. Additional enlargement uses traditional resizing. / نموذج 1X ينظف بالحجم الأصلي؛ التكبير الإضافي تقليدي.</p>}
+      {!twoModels && getModelScale(model) === "1" && Number(scale) > 1 && <p className="text-xs text-warning" role="note">{labels.oneXResize}</p>}
       <input
         type="range"
         min="1"

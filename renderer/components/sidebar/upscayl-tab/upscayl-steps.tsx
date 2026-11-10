@@ -1,3 +1,7 @@
+import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
+import { useTwoModelsAtom, secondModelAtom } from "@/atoms/two-stage-atom";
+import getModelScale from "@common/check-model-scale";
+import { selectedModelIdAtom } from "@/atoms/user-settings-atom";
 import { useAtom, useAtomValue } from "jotai";
 import React, { useEffect, useMemo } from "react";
 import { Tooltip } from "react-tooltip";
@@ -47,6 +51,9 @@ function UpscaylSteps({
   setDoubleUpscayl,
   dimensions,
 }: IProps) {
+  const labels=useTwoStageLabels();
+  const [useTwo,setUseTwo]=useAtom(useTwoModelsAtom);
+  const first=useAtomValue(selectedModelIdAtom),second=useAtomValue(secondModelAtom);
   const [scale, setScale] = useAtom(scaleAtom);
   const [outputPath, setOutputPath] = useAtom(savedOutputPathAtom);
   const [progress, setProgress] = useAtom(progressAtom);
@@ -154,17 +161,26 @@ function UpscaylSteps({
       <div className="animate-step-in group flex flex-col gap-4">
         <div>
           <p className="step-heading">{t("APP.MODEL_SELECTION.TITLE")}</p>
-          <p className="mb-2 text-sm">{t("APP.MODEL_SELECTION.DESCRIPTION")}</p>
+          <p className="mb-2 text-sm">{labels.first}</p>
 
           <SelectModelDialog />
         </div>
 
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="checkbox" checked={useTwo} onChange={e=>{setUseTwo(e.target.checked);if(e.target.checked)setDoubleUpscayl(false);}} />
+          {labels.enable}
+        </label>
+        <div className={useTwo?"":"opacity-50"}>
+          <p className="mb-2 text-sm">{labels.second}</p>
+          <SelectModelDialog target="second" disabled={!useTwo}/>
+        </div>
+        {useTwo&&second&&Number(getModelScale(first))*Number(getModelScale(second))>=16&&<p role="note" className="text-xs text-warning">{labels.large}</p>}
         {!batchMode && (
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
               className="checkbox"
-              checked={doubleUpscayl}
+              checked={doubleUpscayl} disabled={useTwo}
               onChange={(e) => {
                 if (e.target.checked) {
                   setDoubleUpscayl(true);
@@ -176,7 +192,7 @@ function UpscaylSteps({
             <p
               className="cursor-pointer text-sm"
               onClick={(e) => {
-                setDoubleUpscayl((prev) => !prev);
+                if(!useTwo)setDoubleUpscayl((prev) => !prev);
               }}
             >
               {t("APP.DOUBLE_UPSCAYL.TITLE")}
@@ -191,6 +207,7 @@ function UpscaylSteps({
           </div>
         )}
 
+        {useTwo&&<p className="text-xs text-base-content/70">{labels.explanation}</p>}
         <SelectImageScale scale={scale} setScale={setScale} hideInfo />
       </div>
 

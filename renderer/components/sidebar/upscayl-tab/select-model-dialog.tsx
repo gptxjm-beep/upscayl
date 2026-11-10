@@ -1,6 +1,9 @@
 "use client";
+import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
+
 import { modelDisplayName } from "@common/model-metadata";
 
+import { secondModelAtom } from "@/atoms/two-stage-atom";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +22,13 @@ import { customModelIdsAtom } from "@/atoms/models-list-atom";
 import useTranslation from "@/components/hooks/use-translation";
 import posthog from "posthog-js";
 
-const SelectModelDialog = () => {
+const SelectModelDialog = ({target="first",disabled=false}:{target?:"first"|"second";disabled?:boolean}) => {
+  const labels=useTwoStageLabels();
   const t = useTranslation();
-  const [selectedModelId, setSelectedModelId] = useAtom(selectedModelIdAtom);
+  const [first,setFirst] = useAtom(selectedModelIdAtom);
+  const [second,setSecond] = useAtom(secondModelAtom);
+  const selectedModelId=target==="second"?second:first;
+  const setSelectedModelId=target==="second"?setSecond:setFirst;
 
   const customModelIds = useAtomValue(customModelIdsAtom);
   const [open, setOpen] = useState(false);
@@ -47,13 +54,13 @@ const SelectModelDialog = () => {
     <div className="flex flex-col gap-4">
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <button className="btn btn-primary justify-start border-border">
+          <button disabled={disabled} aria-label={target==="second"?labels.second:labels.first} className="btn btn-primary justify-start border-border">
             <SwatchBookIcon className="mr-2 h-5 w-5" />
             {selectedModelId in MODELS
               ? t(
                   `APP.MODEL_SELECTION.MODELS.${MODELS[selectedModelId]?.id}.NAME` as any,
                 )
-              : modelDisplayName(selectedModelId)}
+              : selectedModelId?modelDisplayName(selectedModelId):labels.second}
           </button>
         </DialogTrigger>
         <DialogContent className="z-50 sm:max-w-lg">

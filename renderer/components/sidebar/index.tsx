@@ -1,4 +1,7 @@
 "use client";
+import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
+
+import { useTwoModelsAtom, secondModelAtom } from "@/atoms/two-stage-atom";
 import { useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
@@ -96,14 +99,17 @@ const Sidebar = ({
   const ttaMode = useAtomValue(ttaModeAtom);
   const [copyMetadata] = useAtom(copyMetadataAtom);
 
+  const labels=useTwoStageLabels();
+  const useTwo=useAtomValue(useTwoModelsAtom),second=useAtomValue(secondModelAtom);
   const upscaylHandler = async () => {
+    if(useTwo&&!second){toast({description:labels.second});return;}
     logit("🔄 Resetting Upscaled Image Path");
     setUpscaledImagePath("");
     setUpscaledBatchFolderPath("");
     if (imagePath !== "" || batchFolderPath !== "") {
       setProgress(t("APP.PROGRESS.WAIT_TITLE"));
       // Double Upscayl
-      if (doubleUpscayl) {
+      if (doubleUpscayl && !useTwo) {
         window.electron.send<DoubleUpscaylPayload>(
           ELECTRON_COMMANDS.DOUBLE_UPSCAYL,
           {
@@ -130,13 +136,14 @@ const Sidebar = ({
           imageUpscayls: prev.imageUpscayls + 1,
         }));
         logit("🏁 DOUBLE_UPSCAYL");
-      } else if (batchMode) {
+      } else if (batchMode || useTwo) {
         // Batch Upscayl
         setDoubleUpscayl(false);
         window.electron.send<BatchUpscaylPayload>(
           ELECTRON_COMMANDS.FOLDER_UPSCAYL,
           {
             batchFolderPath,
+            ...(useTwo?{useTwoModels:true,secondModel:second,...(!batchMode?{singleImage:imagePath}:{})}:{}),
             outputPath,
             model: selectedModelId,
             gpuId: gpuId.length === 0 ? null : gpuId,

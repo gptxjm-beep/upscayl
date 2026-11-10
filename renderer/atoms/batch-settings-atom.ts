@@ -1,7 +1,9 @@
+import { useTwoModelsAtom, secondModelAtom } from "./two-stage-atom";
 import { atom } from 'jotai';
 import * as settings from './user-settings-atom';
 import type { BatchUpscaylPayload } from '@common/types/types';
 export const batchSettingsAtom=atom(get=>({
+ ...(get(useTwoModelsAtom)?{useTwoModels:true,secondModel:get(secondModelAtom)}:{}),
  batchFolderPath:'',outputPath:get(settings.savedOutputPathAtom)||'',
  model:get(settings.selectedModelIdAtom),gpuId:get(settings.gpuIdAtom)||null,
  saveImageAs:get(settings.saveImageAsAtom),scale:get(settings.scaleAtom),

@@ -243,6 +243,8 @@ class Task
 public:
     int id;
     int webp;
+    bool managed_input=false;
+    int original_w=0,original_h=0;
 
     path_t inpath;
     path_t outpath;
@@ -502,14 +504,15 @@ bool resize_output_image(Task& v,const SaveThreadParams* stp)
 {
     if(!stp->resizeProvided&&!stp->hasCustomWidth)return true;
     if(v.inimage.w<=0||v.inimage.h<=0)return false;
-    const int64_t height=stp->hasCustomWidth ? (int64_t)v.inimage.h*stp->resizeWidth/v.inimage.w : stp->resizeHeight;
+    const int iw=v.original_w?v.original_w:v.inimage.w,ih=v.original_h?v.original_h:v.inimage.h;
+    const int64_t height=stp->hasCustomWidth ? (int64_t)ih*stp->resizeWidth/iw : stp->resizeHeight;
     if(v.outimage.w==stp->resizeWidth&&v.outimage.h==height)return true;
     return resize_pixels(v,stp->resizeWidth,height);
 }
 bool scale_output_image(Task& v,const SaveThreadParams* stp)
 {
     if(!stp->hasOutputScale||stp->resizeProvided||stp->hasCustomWidth)return true;
-    return resize_pixels(v,(int64_t)v.inimage.w*stp->outputScale,(int64_t)v.inimage.h*stp->outputScale);
+    return resize_pixels(v,(int64_t)(v.original_w?v.original_w:v.inimage.w)*stp->outputScale,(int64_t)(v.original_h?v.original_h:v.inimage.h)*stp->outputScale);
 }
 
 void *save(void *args)
@@ -527,8 +530,8 @@ void *save(void *args)
             break;
 
         const int inferred_width=v.outimage.w,inferred_height=v.outimage.h;
-        // free input pixel data
-        {
+        // Legacy tasks own an external input buffer; v2 tasks use RAII.
+        if(!v.managed_input) {
             unsigned char *pixeldata = (unsigned char *)v.inimage.data;
             if (v.webp == 1)
             {
@@ -660,6 +663,8 @@ void *save(void *args)
     return 0;
 }
 
+#include "two_stage.h"
+
 #if _WIN32
 int wmain(int argc, wchar_t **argv)
 #else
@@ -675,9 +680,11 @@ int main(int argc, char **argv)
     bool native_scale_provided=false;
     int input_multiple=1;
     int precision_flags=0;
-    int resizeWidth;
-    int resizeHeight;
-    int resizeMode;
+    path_t second_model,second_directory,two_manifest;
+    int second_scale=4,second_alignment=1;
+    int resizeWidth=0;
+    int resizeHeight=0;
+    int resizeMode=0;
     int outputScale = 4;
     bool hasOutputScale = false;
     float compression = 0.00f;
@@ -697,11 +704,16 @@ int main(int argc, char **argv)
 #if _WIN32
     setlocale(LC_ALL, "");
     wchar_t opt;
-    while ((opt = getopt(argc, argv, L"i:o:z:a:s:r:w:t:c:m:n:g:j:f:F:Q:L:vxh")) != (wchar_t)-1)
+    while ((opt = getopt(argc, argv, L"i:o:z:a:s:r:w:t:c:m:n:g:j:f:F:Q:L:N:D:Z:A:P:vxh")) != (wchar_t)-1)
     {
         switch (opt)
         {
         case L'F': precision_flags=_wtoi(optarg);break;
+        case L'N': second_model=optarg;break;
+        case L'D': second_directory=optarg;break;
+        case L'Z': second_scale=_wtoi(optarg);break;
+        case L'A': second_alignment=_wtoi(optarg);break;
+        case L'P': two_manifest=optarg;break;
         case L'Q': controlpath = optarg; break;
         case L'L': manifestpath = optarg; break;
         case L'i':
@@ -787,11 +799,16 @@ int main(int argc, char **argv)
 #else  // _WIN32
     int opt;
     fprintf(stderr, "🚀 Starting Upscayl - Copyright © 2024\n");
-    while ((opt = getopt(argc, argv, "i:o:z:a:s:r:w:t:c:m:n:g:j:f:F:Q:L:vxh")) != -1)
+    while ((opt = getopt(argc, argv, "i:o:z:a:s:r:w:t:c:m:n:g:j:f:F:Q:L:N:D:Z:A:P:vxh")) != -1)
     {
         switch (opt)
         {
         case 'F': precision_flags=atoi(optarg);break;
+        case 'N': second_model=optarg;break;
+        case 'D': second_directory=optarg;break;
+        case 'Z': second_scale=atoi(optarg);break;
+        case 'A': second_alignment=atoi(optarg);break;
+        case 'P': two_manifest=optarg;break;
         case 'Q': controlpath = optarg; break;
         case 'L': manifestpath = optarg; break;
         case 'i':
@@ -1120,6 +1137,13 @@ int main(int argc, char **argv)
             else
                 tilesize[i] = 32;
         }
+    }
+
+    if(!second_model.empty()){
+        if(use_gpu_count!=1||second_directory.empty()||two_manifest.empty()||(second_scale!=1&&second_scale!=2&&second_scale!=4)||(second_alignment!=1&&second_alignment!=2&&second_alignment!=4)){fprintf(stderr,"[two-stage] invalid model metadata or GPU selection\n");ncnn::destroy_gpu_instance();return 2;}
+        SaveThreadParams stp{};stp.resizeWidth=resizeWidth;stp.resizeHeight=resizeHeight;stp.resizeMode=resizeMode;stp.resizeProvided=resizeProvided;stp.verbose=verbose;stp.compression=compression;stp.outputScale=outputScale;stp.hasOutputScale=hasOutputScale;stp.hasCustomWidth=hasCustomWidth;
+        int result=jm5::worker(two_manifest,model,stem,second_directory,second_model,scale,second_scale,input_multiple,second_alignment,gpuid[0],tilesize[0],tta_mode,precision_flags,stp);
+        ncnn::destroy_gpu_instance();return result;
     }
 
     {

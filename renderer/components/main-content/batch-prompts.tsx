@@ -1,3 +1,5 @@
+import { modelDisplayName } from "@common/model-metadata";
+import getModelScale from "@common/check-model-scale";
 import { useEffect, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import { batchPromptAtom } from '@/atoms/batch-prompt-atom';
@@ -9,9 +11,9 @@ import type { BatchPrompt,PromptChoice } from '@common/types/batch-ui';
 import type { BatchUpscaylPayload } from '@common/types/types';
 import useTranslation from '../hooks/use-translation';
 const folderName=(source:string)=>source.replace(/[\\/]+$/,'').split(/[\\/]/).pop()||source;
-const modelName=(id:string)=>({'upscayl-standard-4x':'Upscayl Standard','upscayl-lite-4x':'Upscayl Lite','high-fidelity-4x':'High Fidelity','digital-art-4x':'Digital Art','ultramix-balanced-4x':'Ultramix Balanced','ultrasharp-4x':'Ultrasharp','remacri-4x':'Remacri'}[id]||id);
+const modelName=(id:string)=>({'upscayl-standard-4x':'Upscayl Standard','upscayl-lite-4x':'Upscayl Lite','high-fidelity-4x':'High Fidelity','digital-art-4x':'Digital Art','ultramix-balanced-4x':'Ultramix Balanced','ultrasharp-4x':'Ultrasharp','remacri-4x':'Remacri'}[id]||modelDisplayName(id));
 function Settings({value,title}:{value:BatchUpscaylPayload;title:string}){
- return <div className="min-w-0 rounded-2xl border border-base-content/10 bg-base-100/40 p-4"><p className="mb-2 text-xs font-medium text-base-content/60">{title}</p><p className="break-words font-semibold">{modelName(value.model)}</p><p className="mt-1 text-sm text-base-content/70">{value.useCustomWidth?`${value.customWidth}px`:`${value.scale}×`} · {value.saveImageAs.toUpperCase()}</p></div>;
+ return <div className="min-w-0 rounded-2xl border border-base-content/10 bg-base-100/40 p-4"><p className="mb-2 text-xs font-medium text-base-content/60">{title}</p><p className="break-words font-semibold">{value.useTwoModels?`${modelName(value.model)} (${getModelScale(value.model)}X) → ${modelName(value.secondModel||'')} (${getModelScale(value.secondModel||'')}X)`:modelName(value.model)}</p><p className="mt-1 text-sm text-base-content/70">{value.useCustomWidth?`${value.customWidth}px`:`${value.scale}×`} · {value.saveImageAs.toUpperCase()}</p></div>;
 }
 function PromptCard({prompt}:{prompt:BatchPrompt}){
  const t=useTranslation(),clicked=useRef(false);
@@ -31,7 +33,7 @@ function PromptCard({prompt}:{prompt:BatchPrompt}){
    <div className="flex items-center gap-3"><UpscaylSVGLogo className="h-10 w-10 shrink-0"/><div className="min-w-0"><DialogTitle className="text-xl font-bold">{t(stop?'BATCH_UI.STOP_TITLE':startup?'BATCH_UI.STARTUP_TITLE':'BATCH_UI.FOLDER_TITLE')}</DialogTitle><DialogDescription className="mt-1 text-sm text-base-content/70">{t(stop?'BATCH_UI.STOP_DESCRIPTION':startup?'BATCH_UI.STARTUP_DESCRIPTION':'BATCH_UI.FOLDER_DESCRIPTION')}</DialogDescription></div></div>
    {!stop&&session&&<>
     <div className="rounded-2xl border border-base-content/10 bg-base-100/30 p-4">
-     <div className="mb-3 flex min-w-0 items-center gap-2"><Folder aria-hidden className="h-5 w-5 shrink-0 text-primary"/><p className="truncate text-base font-semibold" title={session.source}>{folderName(session.source)}</p></div>
+     <div className="mb-3 flex min-w-0 items-center gap-2"><Folder aria-hidden className="h-5 w-5 shrink-0 text-primary"/><p className="truncate text-base font-semibold" title={session.source}>{folderName(session.settings.singleImage||session.source)}</p></div>
      <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><p><b dir="ltr">{session.completed} / {session.total}</b> {t('BATCH_UI.COMPLETED')}</p><p className="text-base-content/60">{Math.max(0,session.total-session.completed)} {t('BATCH_UI.REMAINING')}</p></div>
      <progress aria-label={t('BATCH_UI.SAVED_PROGRESS')} className="progress progress-primary h-2 w-full" max={Math.max(1,session.total)} value={session.completed}/>
      <p className="mt-3 break-all text-xs text-base-content/50" title={session.output}>{session.output}</p>

@@ -36,7 +36,7 @@ function ProgressBar({
   }, [progress]);
 
   const stopHandler = () => {
-    window.electron.send(ELECTRON_COMMANDS.STOP,batchMode?{batch:true,batchSessionId:batchJob?.id}:undefined);
+    window.electron.send(ELECTRON_COMMANDS.STOP,(batchMode||batchJob)?{batch:true,batchSessionId:batchJob?.id}:undefined);
     logit("🛑 Stopping Upscayl");
   };
 
@@ -55,7 +55,7 @@ function ProgressBar({
   //   };
   // }, [progress]);
 
-  const batchJob = batchMode && job && ["preparing","resuming","recovering","running", "pausing", "paused", "failed"].includes(job.phase) ? job : null;
+  const batchJob = (batchMode||job?.kind==="single") && job && ["preparing","resuming","recovering","running", "pausing", "paused", "failed"].includes(job.phase) ? job : null;
   const phase = batchJob?.phase;
   const isPaused=phase === 'paused' && batchJob?.engineStopped === true;
   const isPausing=phase === 'pausing' || phase === 'paused' && !isPaused;

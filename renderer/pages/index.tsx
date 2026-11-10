@@ -28,7 +28,6 @@ import { OnboardingDialog } from "@/components/main-content/onboarding-dialog";
 import useSystemInfo from "@/components/hooks/use-system-info";
 
 const Home = () => {
-  useBatchJob();
   const batchSettings=useAtomValue(batchSettingsAtom);
   const t = useAtomValue(translationAtom);
   const logit = useLogger();
@@ -39,6 +38,7 @@ const Home = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [imagePath, setImagePath] = useState("");
+  useBatchJob(setImagePath);
   const [upscaledImagePath, setUpscaledImagePath] = useState("");
   const [dimensions, setDimensions] = useState({
     width: null,

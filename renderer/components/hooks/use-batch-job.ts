@@ -6,7 +6,7 @@ import { ELECTRON_COMMANDS as C } from '@common/electron-commands';
 import useTranslation from './use-translation';
 
 // Subscribe at page level, so changing tabs never removes job state listeners.
-export default function useBatchJob() {
+export default function useBatchJob(setImagePath?:(value:string)=>void) {
   const setJob=useSetAtom(jobAtom),setProgress=useSetAtom(progressAtom),setBatch=useSetAtom(batchModeAtom);
   const t=useTranslation();
   const owned=useRef(false);
@@ -17,11 +17,11 @@ export default function useBatchJob() {
       setJob(state);
       if(state && ['preparing','resuming','recovering','running','pausing','paused','failed'].includes(state.phase)) {
         owned.current=true;
-        setBatch(true);setProgress(t('APP.PROGRESS.WAIT_TITLE'));
+        setBatch(state.kind!=="single");if(state.kind==="single"&&state.settings?.singleImage)setImagePath?.(state.settings.singleImage);setProgress(t('APP.PROGRESS.WAIT_TITLE'));
       } else if(owned.current||_event){setProgress('');owned.current=false;}
     };
     window.electron.on(C.JOB_STATE,update);
     window.electron.invoke(C.JOB_GET).then(state=>{if(!received)update(null,state);}).catch(()=>{});
     return ()=>{mounted=false;window.electron.off(C.JOB_STATE,update);};
-  },[setJob,setProgress,setBatch,t]);
+  },[setJob,setProgress,setBatch,t,setImagePath]);
 }

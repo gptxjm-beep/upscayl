@@ -25,7 +25,7 @@ batchPrompts.on('change',prompt=>send(C.JOB_PROMPT,prompt));
 export function batchManager(){
  if(!manager){
   manager=new BatchManager(path.join(app.getPath('userData'),'enhanced-sessions'),copyMetadata);
-  manager.on('state',state=>{send(C.JOB_STATE,state?{...state,logsPath:logsPath()}:state);if(state?.phase==='completed')send(C.FOLDER_UPSCAYL_DONE,state.output);});
+  manager.on('state',state=>{send(C.JOB_STATE,state?{...state,logsPath:logsPath()}:state);if(state?.phase==='completed'){if(state.kind==='single')send(C.UPSCAYL_DONE,path.join(state.output,manager.session!.items[0].name));else send(C.FOLDER_UPSCAYL_DONE,state.output);}});
   manager.on('problem',problem);manager.on('log',data=>send(C.LOG,data));
  }
  return manager;
@@ -34,23 +34,24 @@ function currentBatchEngine(){
  return isDev?path.join(app.getAppPath(),'resources',process.platform==='win32'?'win':process.platform==='darwin'?'mac':'linux','bin',process.platform==='win32'?'upscayl-jm.exe':'upscayl-jm')
  :path.join(path.dirname(app.getAppPath()),'bin',process.platform==='win32'?'upscayl-jm.exe':'upscayl-jm');
 }
+const secondDirectory=(settings:BatchUpscaylPayload)=>settings.secondModel?modelDirectory({...settings,model:settings.secondModel}):undefined;
 const modelDirectory=(settings:BatchUpscaylPayload)=>settings.model in MODELS?modelsPath:savedCustomModelsPath||modelsPath;
 export function offerRecovery(source?:string,currentSettings?:BatchUpscaylPayload){
  if(batchPrompts.current)return;
  const active=batchManager().session;
  if(active&&['preparing','resuming','recovering','running','pausing','paused'].includes(active.phase))return;
  const kind=source?'folder':'startup';
- const sessions=batchManager().discover(source).filter(s=>kind==='folder'||startupRecoverable(s));
+ const sessions=batchManager().discover(source,currentSettings?.singleImage).filter(s=>kind==='folder'||startupRecoverable(s));
  const session=sessions[0];if(!session)return;
  lifecycle('recovery-detected',{kind,id:session.id,completed:session.completed,total:session.total});
  void batchPrompts.open({kind,session,currentSettings},async choice=>{
   lifecycle('recovery-action',{kind,id:session.id,choice});
   if(choice==='dismiss'){send(C.JOB_STATE,batchManager().snapshot());return;}
   try{
-   if(choice==='resume')await batchManager().restore(session.id,currentBatchEngine(),modelDirectory(session.settings));
+   if(choice==='resume')await batchManager().restore(session.id,currentBatchEngine(),modelDirectory(session.settings),secondDirectory(session.settings));
    else if(choice==='fresh'){
     if(!currentSettings)throw new Error('Select your current batch settings before starting fresh.');
-    await batchManager().restart(session.id,currentBatchEngine(),modelDirectory(currentSettings),currentSettings);
+    await batchManager().restart(session.id,currentBatchEngine(),modelDirectory(currentSettings),currentSettings,secondDirectory(currentSettings));
    }
    await batchManager().whenStarted();
    lifecycle('recovery-started',{kind,id:session.id,choice});
@@ -60,9 +61,10 @@ export function offerRecovery(source?:string,currentSettings?:BatchUpscaylPayloa
 export async function startBatch(_event:any,payload:BatchUpscaylPayload){
  try{
   if(batchPrompts.current)return;
-  if(batchManager().discover(payload.batchFolderPath).length){offerRecovery(payload.batchFolderPath,payload);if(batchPrompts.current)return;}
+  if(payload.singleImage)payload={...payload,batchFolderPath:path.dirname(path.resolve(payload.singleImage))};
+  if(batchManager().discover(payload.batchFolderPath,payload.singleImage).length){offerRecovery(payload.batchFolderPath,payload);if(batchPrompts.current)return;}
   const engine=currentBatchEngine();if(!fs.existsSync(engine))throw new Error('Enhanced batch engine is missing.');
-  await batchManager().create(payload,modelDirectory(payload),engine);
+  await batchManager().create(payload,modelDirectory(payload),engine,secondDirectory(payload));
  }catch(error){problem(error);send(C.JOB_STATE,batchManager().snapshot());}
 }
 export async function requestBatchStop():Promise<boolean>{

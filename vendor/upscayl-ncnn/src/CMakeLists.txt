@@ -299,6 +299,13 @@ compile_shader(realesrgan_postproc_tta.comp)
 add_custom_target(generate-spirv DEPENDS ${SHADER_SPV_HEX_FILES})
 
 add_executable(upscayl-bin main.cpp realesrgan.cpp)
+# Only the host worker catches filesystem/allocation failures. Keep NCNN's
+# existing no-exception compilation and inference options unchanged.
+if(MSVC)
+    set_source_files_properties(main.cpp PROPERTIES COMPILE_FLAGS "/EHsc")
+else()
+    set_source_files_properties(main.cpp PROPERTIES COMPILE_FLAGS "-fexceptions")
+endif()
 
 add_dependencies(upscayl-bin generate-spirv)
 

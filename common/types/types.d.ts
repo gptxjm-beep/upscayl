@@ -37,6 +37,9 @@ export type DoubleUpscaylPayload = {
 };
 
 export type BatchUpscaylPayload = {
+  useTwoModels?: boolean;
+  secondModel?: string;
+  singleImage?: string;
   batchFolderPath: string;
   outputPath: string;
   model: string;
