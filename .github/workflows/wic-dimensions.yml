@@ -17,8 +17,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force .test-artifacts | Out-Null
-          Get-ComputerInfo OsName,OsVersion,OsBuildNumber
-          (Get-Item "$env:WINDIR\System32\WindowsCodecs.dll").VersionInfo | Select-Object FileVersion,ProductVersion
+          Get-ComputerInfo OsName,OsVersion,OsBuildNumber | Out-String | Tee-Object .test-artifacts/system.txt
+          (Get-Item "$env:WINDIR\System32\WindowsCodecs.dll").VersionInfo | Select-Object FileVersion,ProductVersion | Out-String | Tee-Object -Append .test-artifacts/system.txt
           cl /std:c++17 /utf-8 /EHsc tests\jobs\wic-dimensions.cpp /Fe:wic-dimensions.exe /link windowscodecs.lib ole32.lib
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & .\wic-dimensions.exe | Tee-Object .test-artifacts/wic-dimensions.txt

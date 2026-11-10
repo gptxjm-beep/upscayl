@@ -18,23 +18,23 @@ const shots=path.join(root,'.test-artifacts');fs.mkdirSync(shots,{recursive:true
   await page.getByRole('button',{name:'Not Now',exact:true}).click();await page.locator('[role="dialog"][data-state="open"]').waitFor({state:'hidden'});
   assert.deepEqual(await app.evaluate(()=>global.dialogChoices),['dismiss']);
   await open('folder');await page.getByText('Current settings',{exact:true}).waitFor();await page.getByText('Previous settings',{exact:true}).waitFor();
-  await page.screenshot({path:path.join(shots,'jm4-folder-recovery.png')});
+  await page.screenshot({animations:'disabled',path:path.join(shots,'jm4-folder-recovery.png')});
   await page.getByRole('button',{name:'Start Fresh with Current Settings',exact:false}).click();
   await page.getByRole('status').waitFor();assert.equal(await page.getByRole('button',{name:'Cancel',exact:true}).isDisabled(),true);
   assert.equal(await page.locator('[role="dialog"][data-state="open"]').count(),1,'Must remain visible while preparing');
   assert.deepEqual(await app.evaluate(()=>global.dialogChoices),['fresh']);await finish();await page.locator('[role="dialog"][data-state="open"]').waitFor({state:'hidden'});
   await open('startup');await page.getByRole('button',{name:'Resume Processing',exact:true}).click();
   await page.getByRole('status').waitFor();assert.equal(await page.getByRole('button',{name:'Not Now',exact:true}).isDisabled(),true);
-  await page.screenshot({path:path.join(shots,'jm4-recovery-pending.png')});
+  await page.screenshot({animations:'disabled',path:path.join(shots,'jm4-recovery-pending.png')});
   await app.evaluate(()=>global.failDialog());await page.getByRole('alert').filter({hasText:'Fixture recovery failed'}).waitFor();assert.equal(await page.getByRole('button',{name:'Resume Processing',exact:true}).isDisabled(),false);
   await page.getByRole('button',{name:'Resume Processing',exact:true}).click();await page.getByRole('status').waitFor();await finish();await page.locator('[role="dialog"][data-state="open"]').waitFor({state:'hidden'});
   await open('stop');await page.getByRole('button',{name:'Go Back',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Go Back',exact:true}).evaluate(e=>e===document.activeElement),true);
-  await page.screenshot({path:path.join(shots,'jm4-stop-confirmation.png')});await page.getByRole('button',{name:'Go Back',exact:true}).click();
+  await page.screenshot({animations:'disabled',path:path.join(shots,'jm4-stop-confirmation.png')});await page.getByRole('button',{name:'Go Back',exact:true}).click();
   await page.locator('[role="dialog"][data-state="open"]').waitFor({state:'hidden'});
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('jm:state',{id:'error',phase:'failed',completed:55,total:100,engineStopped:true,lastError:'Image 000053.jpg failed during encode',failure:{image:'000053.jpg',reason:'The image encoder rejected invalid or unsupported output dimensions.',details:'WIC PNG input=720x29700 inferred=2880x118800 final=1440x59400 HRESULT=0x88982f51'}}));
   await page.getByText('000053.jpg',{exact:true}).waitFor();assert.equal(await page.locator('details').getAttribute('open'),null);
-  await page.screenshot({path:path.join(shots,'jm4-error-compact.png')});await page.getByText('Technical details',{exact:true}).click();await page.getByText(/WIC PNG input=/).waitFor();
-  await page.setViewportSize({width:650,height:750});await open('folder');await page.locator('[role="dialog"][data-state="open"]').waitFor();await page.screenshot({path:path.join(shots,'jm4-recovery-small.png')});
+  await page.screenshot({animations:'disabled',path:path.join(shots,'jm4-error-compact.png')});await page.getByText('Technical details',{exact:true}).click();await page.getByText(/WIC PNG input=/).waitFor();
+  await page.setViewportSize({width:650,height:750});await open('folder');await page.locator('[role="dialog"][data-state="open"]').waitFor();await page.screenshot({animations:'disabled',path:path.join(shots,'jm4-recovery-small.png')});
   const box=await page.locator('[role="dialog"][data-state="open"]').boundingBox();assert(box.x>=0&&box.x+box.width<=650);await page.getByRole('button',{name:'Cancel',exact:true}).click();
   console.log('Custom startup/folder/STOP dialogs, immediate pending feedback, retry, settings comparison, compact error details and narrow viewport passed. Synthetic states; no GPU claim.');
  }finally{await app.close();fs.rmSync(profile,{recursive:true,force:true});}

@@ -57,6 +57,10 @@
 
 لا دمج إلى main ولا نشر إصدار رسمي، ولا قياسات أداء أو ادعاء نجاح على RTX ضمن هذه البيئة.
 
+## نتائج التحقق المحلي
+
+نجحت اختبارات الجلسات والوحدات الـ36، واختبارات NCNN الفعلية الخمسة على SwiftShader، واختبار C++ للبوابة، وبناء TypeScript/Next.js، واختبارات واجهة Electron. تشمل الواجهة أيضًا الإلغاء قبل إنشاء السجل وعدم تطبيق استجابة قديمة لاستعلام الحالة فوق تحديث أحدث. اختبارات GPU الحقيقي وWindows 11 على جهاز المستخدم تبقى عملية منفصلة.
+
 ## الملفات المعدلة في هذه المرحلة
 
 ```text
@@ -106,6 +110,7 @@ tests/jobs/recovery-ux.test.cjs
 tests/jobs/session.test.cjs
 tests/jobs/ui.smoke.cjs
 tests/jobs/wic-dimensions.cpp
+tests/jobs/wic.cpp
 tools/enhanced-builder.cjs
 tools/verify-enhanced-windows.py
 vendor/upscayl-ncnn/src/main.cpp

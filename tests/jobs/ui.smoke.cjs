@@ -63,18 +63,28 @@ const screenshots=path.join(root,'.test-artifacts');fs.mkdirSync(screenshots,{re
   assert.equal(await card.getByRole('button',{name:'STOP',exact:true}).count(),1);
   const a=await stop.boundingBox(),b=await button.boundingBox();assert(Math.abs(a.y-b.y)<2&&Math.abs(a.height-b.height)<2);
   if(phase==='paused')await page.getByText('Processing engine stopped. Engine GPU resources released. Progress saved.',{exact:false}).waitFor();
-  await page.screenshot({path:path.join(screenshots,`jm4-${phase}.png`)});
+  await page.screenshot({animations:'disabled',path:path.join(screenshots,`jm4-${phase}.png`)});
  }
  await send('paused');await page.setViewportSize({width:650,height:750});
  await page.getByRole('button',{name:'Resume',exact:true}).waitFor();
- await page.screenshot({path:path.join(screenshots,'jm4-paused-small.png')});
+ await page.screenshot({animations:'disabled',path:path.join(screenshots,'jm4-paused-small.png')});
  await send('completed');await page.getByRole('button',{name:'Resume',exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.getByRole('button',{name:'Pause',exact:true}).count(),0);
- console.log('Settings navigation/editing, original Step 4, original center card and STOP/PAUSE/RESUME states passed; synthetic job states, no GPU claim.');
+ // Cancellation before the first durable session must clear the initial card.
+ await app.evaluate(({ipcMain,dialog})=>{
+  ipcMain.removeAllListeners('Upscale a Folder');ipcMain.on('Upscale a Folder',()=>{});
+  dialog.showOpenDialog=async()=>({canceled:false,filePaths:[process.platform==='win32'?'C:/fixture':'/tmp/fixture']});
+ });
+ await page.getByRole('button',{name:'Select Folder',exact:true}).click();
+ await page.getByRole('button',{name:'Upscayl 🚀',exact:true}).click();
+ await page.getByRole('button',{name:'STOP',exact:true}).waitFor();
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('jm:state',null));
+ await page.getByRole('button',{name:'STOP',exact:true}).waitFor({state:'hidden'});
+ console.log('Settings navigation/editing, original Step 4, original center card, early preparation cancellation and STOP/PAUSE/RESUME states passed; synthetic job states, no GPU claim.');
  }catch(error){
    const page=await app.firstWindow();
    console.error('UI body at failure:',await page.locator('body').innerText());
-   await page.screenshot({path:path.join(screenshots,'jm4-ui-failure.png')}).catch(()=>{});
+   await page.screenshot({animations:'disabled',path:path.join(screenshots,'jm4-ui-failure.png')}).catch(()=>{});
    throw error;
  }finally{await app.close();fs.rmSync(profile,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

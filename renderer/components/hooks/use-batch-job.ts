@@ -11,15 +11,17 @@ export default function useBatchJob() {
   const t=useTranslation();
   const owned=useRef(false);
   useEffect(()=>{
+    let mounted=true,received=false;
     const update=(_event:unknown,state:JobState|null)=>{
+      if(!mounted)return;if(_event)received=true;
       setJob(state);
       if(state && ['preparing','resuming','recovering','running','pausing','paused','failed'].includes(state.phase)) {
         owned.current=true;
         setBatch(true);setProgress(t('APP.PROGRESS.WAIT_TITLE'));
-      } else if(owned.current){setProgress('');owned.current=false;}
+      } else if(owned.current||_event){setProgress('');owned.current=false;}
     };
     window.electron.on(C.JOB_STATE,update);
-    window.electron.invoke(C.JOB_GET).then(state=>update(null,state));
-    return ()=>{window.electron.off(C.JOB_STATE,update);};
+    window.electron.invoke(C.JOB_GET).then(state=>{if(!received)update(null,state);}).catch(()=>{});
+    return ()=>{mounted=false;window.electron.off(C.JOB_STATE,update);};
   },[setJob,setProgress,setBatch,t]);
 }
