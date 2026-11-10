@@ -36,5 +36,23 @@ int main() {
  assert(jm::unhex("e697a5") == "日");
  assert(jm::unhex("invalid").empty());
  jm::halted=false;std::filesystem::remove(dir/"pause");std::filesystem::remove(dir/"lease");assert(!jm::admit());
+ // Deterministic inference barrier: all 50 tasks are already queued. Two
+ // workers own inference permission; all others must remain deferred.
+ std::ofstream(dir/"lease")<<"1";jm::halted=false;
+ std::atomic<int> next{0},started{0},deferred{0};bool release=false;
+ std::vector<std::thread> workers;
+ for(int n=0;n<2;n++)workers.emplace_back([&]{
+   for(;;){int id=next++;if(id>=50)break;
+     if(!jm::begin_inference(id)){deferred++;continue;}
+     {std::unique_lock<std::mutex> lock(mutex);started++;ready.notify_all();ready.wait(lock,[&]{return release;});}
+     jm::end_inference(id);
+   }
+ });
+ {std::unique_lock<std::mutex> lock(mutex);ready.wait(lock,[&]{return started==2;});}
+ std::ofstream(dir/"pause")<<"1";assert(!jm::admit());
+ {std::lock_guard<std::mutex> guard(jm::inference_gate);assert(jm::active.size()==2);}
+ {std::lock_guard<std::mutex> lock(mutex);release=true;}ready.notify_all();
+ for(auto& worker:workers)worker.join();
+ assert(started==2&&deferred==48&&jm::active.empty());
  std::filesystem::remove_all(dir);std::cout<<"Protocol admission, lease and drain checks passed\n";
 }

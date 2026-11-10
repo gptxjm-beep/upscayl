@@ -313,5 +313,5 @@
       "DESCRIPTION": "Esteu llestos per a començar a augmentar imatges amb Upscayl!"
     }
   },
-  "SESSION": {"PAUSE": "Pausa", "PAUSING": "Pausant...", "RESUME": "Reprén", "CANCEL": "Cancel·la", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
+  "SESSION": {"PAUSE": "Pausa", "PAUSING": "Pausant...", "RESUME": "Reprén", "CANCEL": "Cancel·la", "DRAINING": "Finishing active inference and saving results; stopping the processing engine.", "SAVED": "Processing engine stopped. Engine GPU resources released. Progress saved.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

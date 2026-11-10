@@ -34,6 +34,7 @@ def pe_x64(path):
 def verify_tree(folder, engine_hash):
     engine = folder / 'resources/bin/upscayl-jm.exe'
     assert engine.is_file() and sha(engine) == engine_hash, 'Modified engine absent or mismatched'
+    assert b'@JM3 GATE' in engine.read_bytes(), 'jm.3 inference gate protocol absent'
     pe_x64(engine)
     assert sha(engine) != sha(ROOT / 'resources/win/bin/upscayl-bin.exe'), 'Original engine substituted'
     app_exe = folder / 'Upscayl Enhanced.exe'
@@ -53,7 +54,7 @@ const path=require('path');
 const file=process.argv[1];
 const read=n=>asar.extractFile(file,path.normalize(n)).toString();
 const pkg=JSON.parse(read('package.json'));
-if(pkg.version!=='2.15.0-jm.2'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(pkg.version!=='2.15.0-jm.3'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
 if(!read('export/electron/jobs/integration.js').includes('upscayl-jm.exe'))throw Error('Wrong engine route');
 if(!read('export/electron/jobs/manager.js').includes('@JM'))throw Error('Session protocol absent');
 if(!read('export/electron/main-window.js').includes('Upscayl Enhanced'))throw Error('Updater guard absent');
@@ -90,7 +91,7 @@ def main():
         subprocess.run([seven, 'x', str(archives[0]), '-o' + str(unpacked), '-y', '-bb0'], check=True)
         installer_check = verify_tree(unpacked, engine_hash)
         assert portable_check['asar_sha256'] == installer_check['asar_sha256'], 'Installer/ZIP app differs'
-    manifest = {'version': '2.15.0-jm.2', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    manifest = {'version': '2.15.0-jm.3', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                 'portable_payload': portable_check, 'installer_payload': installer_check,
                 'gpu_inference_tested': False,
                 'files': [{'name':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in installers + portable]}

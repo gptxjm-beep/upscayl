@@ -15,7 +15,7 @@ const icd=path.join(root,'node_modules/electron/dist/vk_swiftshader_icd.json');
 assert(fs.existsSync(icd),'Electron software Vulkan ICD is required, no silent test skip');
 function wait(m) {return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{m.cancel();reject(Error('Native functional test timed out'));},600000);m.once('settled',()=>{clearTimeout(timer);resolve();});});}
 async function fixture(t,count,model='upscayl-lite-4x') {
- const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm2-native-'));
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm3-native-'));
  // Retain failure logs in CI; no source images are included in diagnostics.
  t.after(()=>{const dest=path.join(root,'.test-artifacts/native');fs.mkdirSync(dest,{recursive:true});const logs=path.join(folder,'logs');if(fs.existsSync(logs))for(const name of fs.readdirSync(logs))fs.copyFileSync(path.join(logs,name),path.join(dest,name));fs.rmSync(folder,{recursive:true,force:true});});
  const source=path.join(folder,'漫画 العربية %! Chapter 1');fs.mkdirSync(source);
@@ -51,12 +51,12 @@ async function fixture(t,count,model='upscayl-lite-4x') {
 
 test('six real JPG/PNG inputs with High Fidelity and 5x output on software Vulkan',{timeout:1260000},async t=>{
  const f=await fixture(t,6,'high-fidelity-4x');const manager=f.make();
- if(process.env.JM1_REFERENCE_ENGINE) {
+ if(process.env.JM2_REFERENCE_ENGINE) {
   const previous=f.make();const previousEnd=wait(previous);
-  await previous.create(f.settings,path.join(root,'resources/models'),process.env.JM1_REFERENCE_ENGINE);await previousEnd;
+  await previous.create(f.settings,path.join(root,'resources/models'),process.env.JM2_REFERENCE_ENGINE);await previousEnd;
   const reference={phase:previous.session.phase,completed:previous.snapshot().completed,error:previous.snapshot().lastError};
-  console.log('Actual jm.1 reference on software Vulkan:',JSON.stringify(reference));
-  if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'\n### jm.1 regression comparison (software Vulkan)\n```json\n'+JSON.stringify(reference,null,2)+'\n```\n');
+  console.log('Actual jm.2 reference on software Vulkan:',JSON.stringify(reference));
+  if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'\n### jm.2 regression comparison (software Vulkan)\n```json\n'+JSON.stringify(reference,null,2)+'\n```\n');
  }
  const end=wait(manager);await manager.create(f.settings,path.join(root,'resources/models'),engine);await end;
  assert.equal(manager.session.phase,'completed',JSON.stringify(manager.snapshot()));
@@ -66,18 +66,42 @@ test('six real JPG/PNG inputs with High Fidelity and 5x output on software Vulka
  console.log('Real NCNN inference: six images passed with SwiftShader CPU Vulkan. NVIDIA GPU NOT tested.');
 });
 
-test('native pipeline drains, restarts after Pause and skips adopted outputs',{timeout:660000},async t=>{
- const f=await fixture(t,32);const manager=f.make();let requested=false;
- manager.on('state',s=>{if(s.phase==='running'&&s.completed>=1&&!requested){requested=true;manager.pause();manager.pause();}});
- const end=wait(manager);await manager.create(f.settings,path.join(root,'resources/models'),engine);await end;
- assert.equal(manager.session.phase,'paused',JSON.stringify(manager.snapshot()));assert(!manager.child);
- const done=manager.session.items.filter(i=>i.state==='completed');assert(done.length>0&&done.length<32);
- const times=done.map(i=>[i.name,fs.statSync(path.join(manager.session.output,i.name)).mtimeMs]);
- const recovered=f.make();const finished=wait(recovered);await recovered.restore(manager.session.id);await finished;
- assert.equal(recovered.session.phase,'completed',JSON.stringify(recovered.snapshot()));
- for(const [name,time]of times)assert.equal(fs.statSync(path.join(recovered.session.output,name)).mtimeMs,time);
- console.log('Native Pause/drain/recovery passed on SwiftShader CPU Vulkan; not a GPU benchmark.');
-});
+for(const [count,model] of [[6,'high-fidelity-4x'],[50,'upscayl-lite-4x']]) {
+ test(`${count} native images: inference gate drops prefetched work and recovery skips completed`,{timeout:660000},async t=>{
+  const f=await fixture(t,count,model),manager=f.make();let requested=false,gate;
+  const events=[];
+  manager.on('native-trace',e=>{
+   events.push(e);
+   if(e.event==='END'&&!requested){requested=true;manager.pause();manager.pause();}
+  });
+  manager.on('gate-closed',e=>{gate=e;events.push({event:'GATE'});});
+  const ended=wait(manager);await manager.create(f.settings,path.join(root,'resources/models'),engine);await ended;
+  assert(requested&&gate,'The engine must acknowledge the gate, not merely receive Pause');
+  assert.equal(manager.session.phase,'paused',JSON.stringify(manager.snapshot()));assert(!manager.child);
+  assert.equal(manager.snapshot().engineStopped,true);
+  const eventsOnDisk=fs.readFileSync(path.join(f.folder,'logs','batch-'+manager.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);
+  const pid=eventsOnDisk.find(e=>e.kind==='spawn').data.pid;
+  const {ownsEngine}=require('../../export/electron/jobs/process-owner.js');
+  assert(!ownsEngine(pid,path.join(manager.session.output,'.upscayl-session','work')),'OS must confirm that this engine is gone');
+  const cut=events.findIndex(e=>e.event==='GATE');
+  assert(!events.slice(cut+1).some(e=>e.event==='START'),'No inference can start after acknowledged gate closure');
+  assert(events.some(e=>e.event==='DEFER'),'Already loaded tasks must be discarded without inference');
+  const done=manager.session.items.filter(i=>i.state==='completed');assert(done.length>0&&done.length<count);
+  const started=new Set(events.filter(e=>e.event==='START').map(e=>e.id));
+  assert.equal(done.length,started.size,'Every started image must finish saving and validation');
+  assert(manager.session.items.every(i=>['completed','pending'].includes(i.state)));
+  const times=done.map(i=>[i.name,fs.statSync(path.join(manager.session.output,i.name)).mtimeMs]);
+  const output=manager.session.output;
+  const recovered=f.make();assert.equal(recovered.discover(f.source)[0].id,manager.session.id);
+  const finished=wait(recovered);await recovered.restore(manager.session.id);await finished;
+  assert.equal(recovered.session.phase,'completed',JSON.stringify(recovered.snapshot()));assert.equal(recovered.session.output,output);
+  for(const [name,time]of times)assert.equal(fs.statSync(path.join(output,name)).mtimeMs,time);
+  assert(fs.readdirSync(output).every(n=>n.endsWith('.png')));
+  const result={count,completedAtPause:done.length,remaining:count-done.length,activeAtGate:gate.active,gateLatencyMs:gate.latencyMs,startsAfterGate:0,engineStopped:true};
+  console.log('jm.3 inference-gate evidence:',JSON.stringify(result));
+  fs.writeFileSync(path.join(root,'.test-artifacts',`gate-${count}.json`),JSON.stringify(result,null,2));
+ });
+}
 
 test('STOP cancels the real native child and retains only validated adopted images',{timeout:660000},async t=>{
  const f=await fixture(t,32);const manager=f.make();let requested=false;
@@ -86,6 +110,6 @@ test('STOP cancels the real native child and retains only validated adopted imag
  assert(requested);assert.equal(manager.session.phase,'cancelled');assert(!manager.child);
  const done=manager.session.items.filter(i=>i.state==='completed');assert(done.length>0&&done.length<32);
  for(const i of done) {const info=await sharp(path.join(manager.session.output,i.name)).metadata();assert.equal(info.width,40);assert.equal(info.height,40);}
- assert(fs.existsSync(manager.session.file));assert(!fs.existsSync(path.join(manager.session.output,'.upscayl-session','work')));
+ assert(!fs.existsSync(manager.session.file));assert.deepEqual(manager.discover(),[]);assert(!fs.existsSync(path.join(manager.session.output,'.upscayl-session','work')));
  console.log('Native STOP cancellation passed on software Vulkan; no GPU claim.');
 });

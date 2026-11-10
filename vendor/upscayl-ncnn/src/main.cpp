@@ -411,6 +411,7 @@ void *load(void *args)
 #endif // _WIN32
             }
 
+            jm::trace("LOAD",v.id);
             toproc.put(v);
         }
         else
@@ -447,7 +448,14 @@ void *proc(void *args)
         if (v.id == -233)
             break;
 
+        if (!jm::begin_inference(v.id)) {
+            // Input storage is external to Mat. Output storage is owned by Mat
+            // and released by v's destructor; neither task reached the GPU.
+            free(v.inimage.data);
+            continue;
+        }
         int result = realesrgan->process(v.inimage, v.outimage);
+        jm::end_inference(v.id);
         if(result != 0) { jm::event(v.id, false, "inference", result); }
 
         if(result == 0) tosave.put(v);
@@ -1029,6 +1037,7 @@ int main(int argc, char **argv)
         }
     }
 
+    jm::Monitor monitor;
     int prepadding = 0;
 
     if (model.find(PATHSTR("models")) != path_t::npos || model.find(PATHSTR("models2")) != path_t::npos)

@@ -59,7 +59,7 @@ test('restart recovery rejects model/source change and repairs corrupt output wi
  assert.notEqual(recovered.session.items.find(i=>i.source===complete.source).name,complete.name);
 });
 
-test('failed image retains journal; Cancel retains successful files and recoverable session',async t=>{
+test('failed image retains journal; confirmed Cancel retains successful files and deletes recovery data',async t=>{
  const f=await fixture(t,12,true);const m=f.make();const stop=settled(m);await m.create(f.settings,f.models,fake);await stop;
  assert.equal(m.session.phase,'failed');assert(fs.existsSync(m.session.file));assert(m.session.items.some(i=>i.state==='failed'));
  assert.match(m.snapshot().lastError,/failed during decode \(code -1\)/);
@@ -71,7 +71,7 @@ test('failed image retains journal; Cancel retains successful files and recovera
  await assert.rejects(()=>m.resume(),/settings changed/);m.session.settings.scale=scale;
  const failed=m.session.items.find(i=>i.state==='failed');fs.writeFileSync(failed.source,'changed');
  await assert.rejects(()=>m.resume(),/Source changed/);
- m.cancel();assert.equal(m.session.phase,'cancelled');assert(fs.existsSync(m.session.file));
+ await m.cancel();assert.equal(m.session.phase,'cancelled');assert(!fs.existsSync(m.session.file));assert.deepEqual(m.discover(),[]);
 });
 
 test('shutdown during running/pausing persists progress and can be restored',async t=>{
@@ -108,23 +108,83 @@ test('engine crash and interrupted commit reconcile on recovery without reproces
 
 test('Cancel during input preparation never starts an engine',async t=>{
  const f=await fixture(t,12);const m=f.make();
- const preparation=m.create(f.settings,f.models,fake);m.cancel();
- await assert.rejects(()=>preparation,/preparation cancelled/);
+ const preparation=m.create(f.settings,f.models,fake);const cancellation=m.cancel();
+ await assert.rejects(()=>preparation,/preparation cancelled/);await cancellation;
  assert.equal(m.child,undefined);assert.equal(m.session,undefined);assert.deepEqual(m.discover(),[]);
 });
 
-test('Start From Beginning creates a separate session/output and preserves the previous record',async t=>{
+test('Start From Beginning creates a durable replacement then retires the old record',async t=>{
  const f=await fixture(t,12);const old=f.make();await old.create(f.settings,f.models,fake);
  await old.shutdown();const record=old.session.file,output=old.session.output;
  const fresh=f.make();const done=settled(fresh);await fresh.restart(old.session.id);await done;
  assert.equal(fresh.session.phase,'completed');assert.notEqual(fresh.session.output,output);
- assert(fs.existsSync(record));assert.notEqual(fresh.session.id,old.session.id);
+ assert(!fs.existsSync(record));assert(fs.existsSync(output));assert.notEqual(fresh.session.id,old.session.id);
 });
 
 test('Cancel cannot race a new batch before the previous process has closed',async t=>{
  const f=await fixture(t,12);const m=f.make();await m.create(f.settings,f.models,fake);
- const stopped=settled(m);m.cancel();
+ const stopped=settled(m);const cancellation=m.cancel();
  await assert.rejects(()=>m.create(f.settings,f.models,fake),/current batch/);
- await stopped;assert.equal(m.child,undefined);assert.equal(m.session.phase,'cancelled');
- assert(fs.existsSync(m.session.file));
+ await stopped;await cancellation;assert.equal(m.child,undefined);assert.equal(m.session.phase,'cancelled');
+ assert(!fs.existsSync(m.session.file));
+});
+
+for(const stage of ['waiting','inference','saving','committing','adopted'])test(`host killed during ${stage}: recovery reconciles only proven outputs`,async t=>{
+ const f=await fixture(t,12),signal=path.join(f.root,'checkpoint.json'),config=path.join(f.root,'host.json');
+ fs.writeFileSync(config,JSON.stringify({stage,signal,registry:f.registry,settings:f.settings,models:f.models,engine:fake}));
+ const host=spawn(process.execPath,[path.join(__dirname,'crash-host.cjs'),config],{stdio:'ignore'});
+ t.after(()=>{if(host.exitCode===null)host.kill('SIGKILL');});
+ const deadline=Date.now()+30000;
+ while(!fs.existsSync(signal)){assert(Date.now()<deadline,'Host did not reach checkpoint');await delay(10);}
+ const evidence=JSON.parse(fs.readFileSync(signal,'utf8'));
+ const exited=new Promise(resolve=>host.once('close',resolve));host.kill('SIGKILL');await exited;
+ const {ownsEngine}=require('../../export/electron/jobs/process-owner.js');
+ while(ownsEngine(evidence.pid,evidence.session.attempt)){assert(Date.now()<deadline,'Orphan engine failed to stop');await delay(50);}
+ const original=evidence.session.items.find(i=>i.outputHash);
+ const output=original&&path.join(evidence.session.output,original.name);
+ const stamp=output&&fs.existsSync(output)?fs.statSync(output).mtimeMs:undefined;
+ const recovered=f.make(),finished=settled(recovered);await recovered.restore(evidence.session.id);await finished;
+ assert.equal(recovered.session.phase,'completed');
+ assert.equal(recovered.session.items.filter(i=>i.state==='completed').length,12);
+ if(stamp!==undefined)assert.equal(fs.statSync(output).mtimeMs,stamp,'Proven adopted image was processed twice');
+ assert(fs.readdirSync(recovered.session.output).every(n=>n.endsWith('.png')));
+});
+
+test('a reused PID does not block recovery of an unrelated stopped engine',async t=>{
+ const f=await fixture(t,12),old=f.make();await old.create(f.settings,f.models,fake);await old.shutdown();
+ old.session.pid=process.pid;atomicJSON(old.session.file,old.session);
+ const recovered=f.make(),done=settled(recovered);await recovered.restore(old.session.id);await done;
+ assert.equal(recovered.session.phase,'completed');
+});
+
+test('valid but unproven final file is preserved and retry gets a separate name',async t=>{
+ const f=await fixture(t,12),old=f.make();await old.create(f.settings,f.models,fake);await old.shutdown();
+ const item=old.session.items.find(i=>i.state!=='completed');const final=path.join(old.session.output,item.name);
+ await sharp(item.source).toFile(final);const stamp=fs.statSync(final).mtimeMs;
+ const recovered=f.make(),done=settled(recovered);await recovered.restore(old.session.id);await done;
+ assert.equal(recovered.session.phase,'completed');assert.equal(fs.statSync(final).mtimeMs,stamp);
+ assert.notEqual(recovered.session.items.find(i=>i.source===item.source).name,item.name);
+});
+
+test('unresponsive inference has a bounded shutdown and retains recovery state',async t=>{
+ const f=await fixture(t,12),manager=f.make();
+ manager.launch=()=>spawn(process.execPath,['-e','setInterval(()=>{},1000)']);
+ await manager.create(f.settings,f.models,fake);await manager.shutdown(40);
+ assert(!manager.child);assert.equal(manager.session.phase,'failed');assert(fs.existsSync(manager.session.file));
+ assert.equal(manager.snapshot().engineStopped,true);
+});
+
+test('cancel intent survives a crash before cleanup and cannot be resumed',async t=>{
+ const f=await fixture(t,12),old=f.make();await old.create(f.settings,f.models,fake);await old.shutdown();
+ const finals=old.session.items.filter(i=>i.state==='completed').map(i=>path.join(old.session.output,i.name));
+ old.session.phase='cancelled';old.session.cancelConfirmed=true;atomicJSON(old.session.file,old.session);
+ const recovered=f.make();assert.deepEqual(recovered.discover(),[]);assert(!fs.existsSync(old.session.file));
+ for(const file of finals)assert(fs.existsSync(file));
+ await assert.rejects(()=>recovered.restore(old.session.id),/unreadable/);
+});
+
+test('failed Start From Beginning retains the previous durable journal',async t=>{
+ const f=await fixture(t,12),old=f.make();await old.create(f.settings,f.models,fake);await old.shutdown();
+ const before=fs.readFileSync(old.session.file);fs.unlinkSync(path.join(f.models,'test-4x.param'));
+ await assert.rejects(()=>f.make().restart(old.session.id));assert.deepEqual(fs.readFileSync(old.session.file),before);
 });

@@ -310,5 +310,5 @@
       "DESCRIPTION": "Vous êtes prêt à commencer à améliorer des images avec Upscayl !"
     }
   },
-  "SESSION": {"PAUSE": "Pause", "PAUSING": "Mise en pause...", "RESUME": "Reprendre", "CANCEL": "Annuler", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
+  "SESSION": {"PAUSE": "Pause", "PAUSING": "Mise en pause...", "RESUME": "Reprendre", "CANCEL": "Annuler", "DRAINING": "Finishing active inference and saving results; stopping the processing engine.", "SAVED": "Processing engine stopped. Engine GPU resources released. Progress saved.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

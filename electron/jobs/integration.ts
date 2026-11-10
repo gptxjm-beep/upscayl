@@ -12,6 +12,7 @@ import { ELECTRON_COMMANDS as C } from '../../common/electron-commands';
 import { BatchUpscaylPayload } from '../../common/types/types';
 
 let manager: BatchManager;
+let recoveryPrompt=false;
 const send=(command:string,data:any) => { const w=getMainWindow(); if(w && !w.isDestroyed()) w.webContents.send(command,data); };
 const problem=(e:any) => send(C.UPSCAYL_WARNING,String(e));
 export function batchManager() {
@@ -36,6 +37,8 @@ export async function startBatch(_event:any,payload:BatchUpscaylPayload) {
   } catch(e) { problem(e); send(C.JOB_STATE,batchManager().snapshot()); }
 }
 export async function offerRecovery(source?:string) {
+  if(recoveryPrompt)return;
+  recoveryPrompt=true;
   try {
     const active=batchManager().session;
     if(active && ['running','pausing','paused'].includes(active.phase)) return;
@@ -43,8 +46,8 @@ export async function offerRecovery(source?:string) {
       const window=getMainWindow(); if(!window) return;
       const choice=await dialog.showMessageBox(window,{
         type:'question',title:'Previous Upscayl Session Found',
-        message:`${session.completed} / ${session.total} completed; ${session.total-session.completed} remaining.`,
-        detail:`${session.source}\n${session.phase}\n${JSON.stringify(session.settings,null,2)}`,
+        message:'An unfinished processing session was found for this folder.',
+        detail:`${session.completed} of ${session.total} images have been completed.\nWould you like to resume the previous session or start a new one?\n\n${session.source}\n${session.output}`,
         buttons:['Resume Previous Session','Start From Beginning','Cancel'],defaultId:2,cancelId:2,
       });
       if(choice.response === 0) { await batchManager().restore(session.id); return; }
@@ -55,6 +58,7 @@ export async function offerRecovery(source?:string) {
       return; // Cancel closes recovery without touching records or offering another dialog.
     }
   } catch(e) { problem(e); }
+  finally {recoveryPrompt=false;}
 }
 export function registerJobs() {
   ipcMain.on(C.JOB_PAUSE,() => { try { batchManager().pause(); } catch(e) { problem(e); } });

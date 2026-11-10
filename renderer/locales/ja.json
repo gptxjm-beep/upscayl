@@ -310,5 +310,5 @@
       "DESCRIPTION": "Upscaylで画像のアップスケールを始める準備ができました！"
     }
   },
-  "SESSION": {"PAUSE": "一時停止", "PAUSING": "停止処理中...", "RESUME": "再開", "CANCEL": "キャンセル", "DRAINING": "Finishing accepted images; GPU is still active.", "SAVED": "Progress saved. Ready to resume.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
+  "SESSION": {"PAUSE": "一時停止", "PAUSING": "停止処理中...", "RESUME": "再開", "CANCEL": "キャンセル", "DRAINING": "Finishing active inference and saving results; stopping the processing engine.", "SAVED": "Processing engine stopped. Engine GPU resources released. Progress saved.", "RUNNING": "Processing batch", "PAUSED": "Paused", "FAILED": "Batch stopped after errors", "FAILURE_HELP": "Check the log for details. STOP closes this task; progress is preserved."}
 }

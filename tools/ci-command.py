@@ -24,10 +24,13 @@ name=''.join(c if c.isalnum() else '-' for c in args.label)
 print(output,flush=True)
 if args.label == 'software-Vulkan-functional':
     for line in output.splitlines():
-        marker='Actual jm.1 reference on software Vulkan: '
+        marker='Actual jm.2 reference on software Vulkan: '
+        if 'jm.3 inference-gate evidence: ' in line:
+            value=line.split('jm.3 inference-gate evidence: ',1)[1].replace('%','%25')
+            print(f'::notice title=jm.3 inference gate::{value}',flush=True)
         if marker in line:
             value=line.split(marker,1)[1].replace('%','%25').replace('\r','%0D')
-            print(f'::notice title=jm.1 software Vulkan reference::{value}',flush=True)
+            print(f'::notice title=jm.2 software Vulkan reference::{value}',flush=True)
 if result.returncode:
     tail=output[-3500:]
     escaped=tail.replace('%','%25').replace('\r','%0D').replace('\n','%0A')

@@ -1,0 +1,44 @@
+# Upscayl Enhanced 2.15.0-jm.3
+
+## Inference boundary and concurrent Pause
+
+jm.2 gated the loader, so up to eight decoded tasks per queue plus active workers could already be accepted. A six-image folder could be entirely prefetched before Pause. The processor then unconditionally called `RealESRGAN::process`, so every queued image could still run and trigger normal complete-session cleanup.
+
+jm.3 keeps the existing queue capacity, loader/processor/saver overlap, model settings and thread counts. In `proc()`, `jm::begin_inference(id)` registers entry immediately before `process()`. Every processor and the Pause monitor use the same mutex. Under that mutex, a processor checks Pause/lease expiry, registers its image and emits START, or defers it. The monitor emits GATE with a snapshot of active IDs while holding that same mutex. Registration is the linearization point; an invocation registered before GATE may finish. No invocation can register after GATE. The inference calls themselves run outside the mutex and remain parallel. Host-click time and native acknowledgement time are distinct; images can start during delivery latency and are reported honestly.
+
+Loaded/queued work is not inference work. After closure the loader stops admitting; processors drain and free unstarted input buffers, while Mat ownership releases output buffers. Deferred images emit DEFER and remain Pending, not Failed. Existing inference finishes; savers drain normally. End sentinels, separate not-empty/not-full condition variables and the existing thread joins remain intact. Model destruction and `ncnn::destroy_gpu_instance()` precede process exit.
+
+The host logs request time/count, LOAD/START/END/DEFER with native monotonic timestamps, GATE/active IDs, acknowledgement latency, process PID/exit and the count adopted after Pause. START updates in-memory Processing state; each committing/completed durable snapshot also captures current processing states. Saving denotes the host validation/adoption stage; Committing adds the durable output-hash proof. Pending/Processing/Saving retry after a crash unless a final output is independently proven. No extra fsynced snapshot is needed for every START.
+
+## Paused and resource release
+
+Paused is published only after native GATE acknowledgement, process close/closed pipes, the full validation/adoption promise chain, work cleanup and an atomic journal write. The renderer additionally requires `engineStopped` before displaying the resource-release message. Native models, Vulkan allocations, queues and worker CPU activity cease with the engine process. Electron/driver baseline allocations are separate. Process exit is verifiable; real RTX VRAM counters are not inferred from CPU-only tests.
+
+Closing requests the same Pause. A 120-second grace period bounds a hung inference; on timeout the engine is terminated and the interruption journal remains Failed/recoverable. There is a further 10-second exit deadline. If the OS refuses termination or storage cannot finish I/O, the application reports failure and does not claim Paused/resources released. A physical driver/OS failure cannot be guaranteed away by application code.
+
+## Persistence, recovery and cancellation
+
+The existing checksum envelope, atomic snapshots/backups, source/model/engine/settings hashes, full decode/dimensions/format checks, output hash and no-overwrite hard-link adoption remain. Hard-link adoption requires NTFS (or another supporting filesystem). A Committing final with its recorded hash is reconciled without reprocessing. A partial or unproven final is preserved; retry uses a separate name. Unadopted work is discarded only after ownership and process checks.
+
+Recovery discovers the on-disk registry again when selecting the same source folder, independently of renderer memory. A single guarded prompt offers Resume Previous Session, Start From Beginning and Cancel. Cancel leaves files unchanged. Starting over first establishes the replacement session, then retires old work/journals while preserving old final images. An active old engine prevents both restore and restart. PID reuse is handled by checking that the live process still names the recorded control directory; Linux zombies are not mistaken for active engines. Unreadable records are preserved and warnings are deduplicated.
+
+Batch STOP asks “Cancel Batch Processing?” with Go Back as default and “Yes, Cancel Batch”. Go Back does not change the job. Confirmation records permanent cancellation, terminates the engine, waits for close and pending adoption, then removes only owned temporary work, journal/backups and registry entries. Completed/source files remain. A durable cancellation intent left by a crash is cleaned on discovery after confirming that the engine is gone. Cancelled jobs cannot resume. Single/Double STOP keeps its original path without the batch confirmation.
+
+## Tests and limits
+
+- C++ deterministic test: 50 queued tasks, two registered processors held at a barrier, Pause, then 48 deferred tasks. Covers latch/lease and multiple workers without relying on timing.
+- Real NCNN software-Vulkan tests: six JPG/PNG inputs with High Fidelity and 5x output; six- and fifty-image pause/recovery tests verify pending prefetched work, no START after GATE, every START adopted, actual process absence and unchanged completed output timestamps. STOP also checks process exit and removal of recovery files.
+- Separate host processes are killed at waiting, inference, saving, Committing and post-link/pre-Completed checkpoints. Recovery must validate/reconcile proven finals and reject or retry incomplete/unproven outputs. These simulate process failure, not a physical power cut or a disk's volatile write-cache behavior.
+- Session tests cover corrupt snapshots/outputs, model/source changes, 1000 independent image states, PID reuse, permanent cancellation, failed restart and bounded hung-engine shutdown.
+- Electron tests exercise Settings, original Step 4/card, actual Pause/Resume IPC, STOP confirmation decisions in Running/Pausing/Paused and original Single/Double STOP. A separate test closes/relaunches Electron, cancels recovery without mutations, selects the same folder and resumes using a simulator backend. Native inference is tested separately, not represented by those UI states.
+- Windows CI builds the native engine and verifies actual EXE/ZIP payload hashes, jm.3 GATE marker, x64 PE headers, all 14 model files, DLLs, routing and isolated identity. It never publishes an official release or changes main.
+
+A local Linux Electron run exposed a libvips native assertion even for a metadata-only call; that compatibility issue is not claimed fixed by this Windows-focused change. The full Electron recovery test must pass on the targeted Windows runner before packaging. There is no suitable NVIDIA GPU in the cloud environment. SwiftShader correctness tests are not GPU benchmarks, driver certification or proof of measured RTX VRAM release. No throughput regression percentage is invented.
+
+## Windows 11 / RTX 3060 Ti acceptance
+
+Install Enhanced separately or extract Portable into a new folder; keep the original installation. Start with six images and High Fidelity at 5x, then 50/100 images including JPG/PNG, long pages and Unicode/space/% paths. Pause with work remaining, inspect GATE/START logs and verify engine disappearance before Paused. Resume, close/reopen, select the same source and verify that existing valid outputs retain their timestamps. Test STOP/Go Back/confirmed Cancel from all three states. Verify Settings, model selection, Single and Double separately. Do not interrupt actual power on valuable source data for a test.
+
+Run `tools/monitor-enhanced-resources.ps1` in PowerShell during resource acceptance. It records engine PID/presence/CPU/RAM and raw WDDM per-process memory counters when available. Missing counters mean unknown, not zero VRAM. Match PID to the batch log; compare idle UI, Running, Pausing and Paused. The diagnostic log is `%APPDATA%/Upscayl Enhanced/logs/batch-<id>.log` and includes local paths; inspect before sharing. Return that log, the CSV, exact settings and screenshots if a stage fails.
+
+For a real performance comparison, use jm.2 and jm.3 on the same 50–100 input files, identical model weights/GPU/tile/TTA/scale/format/compression/metadata settings, separate fresh output folders and no Pause. Alternate versions for at least three runs each; record first-run versus subsequent runs without claiming flushed caches. Compare wall time, valid outputs/minute and validation/journaling overhead separately. Do not run resource polling during the timing comparison. The extra short gate critical sections, filesystem checks (including a 20 ms monitor) and trace records have an unmeasured cost; model reload occurs only on Resume, not between images.

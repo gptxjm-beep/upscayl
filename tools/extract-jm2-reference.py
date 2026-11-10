@@ -1,4 +1,4 @@
-"""Extract only native binaries from the known jm.1 regression artifact."""
+"""Extract only native binaries from the known jm.2 regression artifact."""
 import os
 from pathlib import Path
 import sys
@@ -15,4 +15,4 @@ with zipfile.ZipFile(archive) as stream:
 engine=folder/'engine/upscayl-jm.exe'
 if not engine.is_file():raise SystemExit('Reference engine missing')
 with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:
-    stream.write(f'JM1_REFERENCE_ENGINE={engine}\n')
+    stream.write(f'JM2_REFERENCE_ENGINE={engine}\n')

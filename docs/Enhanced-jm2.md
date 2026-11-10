@@ -1,5 +1,7 @@
 # Upscayl Enhanced 2.15.0-jm.2 review build
 
+Historical jm.2 notes. Its loader-only Pause boundary is superseded by [jm.3](Enhanced-jm3.md), which gates inference and makes confirmed STOP cancellation permanent.
+
 The original Step 4 is restored. Batch Pause/Resume appears beside STOP in the original progress card. Pausing keeps that card visible until accepted pipeline work drains, validated images are journaled and the native process exits. Paused means that process has exited. Resume rechecks saved settings, model/engine/source hashes and adopted outputs before processing remaining images. Single and Double retain their original engine route.
 
 Settings no longer parses the application name out of the user agent. The original unguarded regex did not match the Enhanced product and dereferenced null. Version now comes from the existing preload API; system-information rendering also tolerates absent/nested values.
