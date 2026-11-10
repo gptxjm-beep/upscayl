@@ -28,10 +28,13 @@ export function batchManager() {
   }
   return manager;
 }
+function currentBatchEngine() {
+  return isDev ? path.join(app.getAppPath(),'resources',process.platform === 'win32' ? 'win':process.platform === 'darwin' ? 'mac':'linux','bin',process.platform === 'win32' ? 'upscayl-jm.exe':'upscayl-jm')
+    : path.join(path.dirname(app.getAppPath()),'bin',process.platform === 'win32' ? 'upscayl-jm.exe':'upscayl-jm');
+}
 export async function startBatch(_event:any,payload:BatchUpscaylPayload) {
   try {
-    const engine=isDev ? path.join(app.getAppPath(),'resources',process.platform === 'win32' ? 'win':process.platform === 'darwin' ? 'mac':'linux','bin',process.platform === 'win32' ? 'upscayl-jm.exe':'upscayl-jm')
-      : path.join(path.dirname(app.getAppPath()),'bin',process.platform === 'win32' ? 'upscayl-jm.exe':'upscayl-jm');
+    const engine=currentBatchEngine();
     if(!fs.existsSync(engine)) throw new Error('Enhanced batch engine is missing. Build vendor/upscayl-ncnn before using batch pause/recovery. Original Single and Double remain available.');
     await batchManager().create(payload,payload.model in MODELS ? modelsPath : (savedCustomModelsPath || modelsPath),engine);
   } catch(e) { problem(e); send(C.JOB_STATE,batchManager().snapshot()); }
@@ -53,7 +56,7 @@ export async function offerRecovery(source?:string) {
       if(choice.response === 0) { await batchManager().restore(session.id); return; }
       if(choice.response === 1) {
         // Create a fresh session and numbered output directory; retain prior images.
-        await batchManager().restart(session.id); return;
+        await batchManager().restart(session.id,currentBatchEngine(),session.settings.model in MODELS ? modelsPath : savedCustomModelsPath || undefined); return;
       }
       return; // Cancel closes recovery without touching records or offering another dialog.
     }

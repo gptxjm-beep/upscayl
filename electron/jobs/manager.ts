@@ -110,12 +110,14 @@ export class BatchManager extends EventEmitter {
     if(path.basename(model) !== model || /[\\/:]/.test(model)) throw new Error('Invalid model name');
     return (await hash(path.join(dir,model+'.param'))) + ':' + (await hash(path.join(dir,model+'.bin')));
   }
-  async restart(id: string) {
+  async restart(id: string, replacementEngine?:string, replacementModels?:string) {
     if(!/^[a-f0-9-]+$/.test(id)) throw new Error('Invalid session ID');
     const link=readJSON<{file:string}>(path.join(this.registry,id+'.json'));
     const previous=readJSON<Session>(link.file);
     this.validateRecord(previous,id,link.file);this.requireStopped(previous);
-    await this.create(previous.settings,previous.modelDir,previous.engine);
+    const engine=replacementEngine || previous.engine;
+    this.requireInferenceGate(engine);
+    await this.create(previous.settings,replacementModels || previous.modelDir,engine);
     // The replacement journal/engine now exists. Preserve all old final images.
     this.removeSession(previous);
   }
@@ -126,6 +128,7 @@ export class BatchManager extends EventEmitter {
     const s = readJSON<Session>(link.file);
     this.validateRecord(s,id,link.file);this.requireStopped(s);
     if(s.phase==='cancelled'||s.cancelConfirmed)throw new Error('This batch was permanently cancelled.');
+    this.requireInferenceGate(s.engine);
     this.session = s;
     s.phase = 'paused';
     await this.resume();
@@ -156,6 +159,9 @@ export class BatchManager extends EventEmitter {
         }
       }
       if(this.cancelRequested) { s.phase='cancelled'; this.save(); return; }
+      // Closing may have arrived while Resume was hashing/validating files.
+      // Do not start a new engine just to stop it again after that preflight.
+      if(this.closing) {s.phase='paused';this.save();return;}
       // Delete only work directories owned by this session, never final images.
       if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt, {recursive:true,force:true});
       const pending = s.items.filter(i => i.state !== 'completed');
@@ -326,6 +332,9 @@ export class BatchManager extends EventEmitter {
   }
   private requireStopped(s:Session) {
     if(s.pid && ownsEngine(s.pid,s.attempt || path.join(s.output,'.upscayl-session','work')))throw new Error('Previous engine process is still active; wait before recovery.');
+  }
+  private requireInferenceGate(engine:string) {
+    if(!fs.readFileSync(engine).includes(Buffer.from('@JM3 GATE')))throw new Error('The recorded engine uses an older Pause protocol. Start From Beginning with jm.3; existing results and this record are preserved.');
   }
   private validateRecord(s:Session,id:string,file:string) {
     if(s.version!==1||s.id!==id||s.file!==file||!/^[a-f0-9-]+$/.test(id))throw new Error('Unsupported session');

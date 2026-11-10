@@ -111,7 +111,7 @@ def main():
     print(json.dumps(manifest,indent=2))
     # Public annotation permits inspecting delivery hashes when authenticated
     # Actions log/artifact APIs are unavailable in the review environment.
-    print('::notice title=Verified jm.2 delivery::'+json.dumps(manifest,separators=(',',':')))
+    print('::notice title=Verified jm.3 delivery::'+json.dumps(manifest,separators=(',',':')))
 
 
 if __name__ == '__main__':

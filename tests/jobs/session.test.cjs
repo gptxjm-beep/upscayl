@@ -140,6 +140,10 @@ for(const stage of ['waiting','inference','saving','committing','adopted'])test(
  const exited=new Promise(resolve=>host.once('close',resolve));host.kill('SIGKILL');await exited;
  const {ownsEngine}=require('../../export/electron/jobs/process-owner.js');
  while(ownsEngine(evidence.pid,evidence.session.attempt)){assert(Date.now()<deadline,'Orphan engine failed to stop');await delay(50);}
+ if(stage==='saving') {
+  const unfinished=fs.readdirSync(evidence.session.attempt).find(n=>n.endsWith('.png'));
+  assert(unfinished);fs.writeFileSync(path.join(evidence.session.attempt,unfinished),'partial unflushed image');
+ }
  const original=evidence.session.items.find(i=>i.outputHash);
  const output=original&&path.join(evidence.session.output,original.name);
  const stamp=output&&fs.existsSync(output)?fs.statSync(output).mtimeMs:undefined;
@@ -213,4 +217,29 @@ test('restore and start-over both reject a still-owned engine process',async t=>
   await assert.rejects(()=>f.make().restore(old.session.id),/still active/);
   await assert.rejects(()=>f.make().restart(old.session.id),/still active/);
  }finally{await old.cancel();}
+});
+
+test('closing during Resume preflight never launches another engine',async t=>{
+ const f=await fixture(t,12),manager=f.make();let asked=false;
+ manager.on('state',s=>{if(s.phase==='running'&&s.completed>=1&&!asked){asked=true;manager.pause();}});
+ const paused=settled(manager);await manager.create(f.settings,f.models,fake);await paused;
+ let enter,release;const entered=new Promise(r=>enter=r),hold=new Promise(r=>release=r);
+ const modelHash=manager.modelHash.bind(manager);
+ manager.modelHash=async (...args)=>{enter();await hold;return modelHash(...args);};
+ let launches=0;manager.launch=()=>{launches++;throw Error('Engine must not launch during close');};
+ const resuming=manager.resume();await entered;const closing=manager.shutdown();release();
+ await resuming;await closing;assert.equal(launches,0);assert(!manager.child);
+ assert.equal(manager.session.phase,'paused');assert(fs.existsSync(manager.session.file));
+});
+
+test('legacy Pause engine cannot be restored silently; start-over uses the supplied current engine',async t=>{
+ const f=await fixture(t,12),old=f.make();await old.create(f.settings,f.models,fake);await old.shutdown();
+ const legacy=path.join(f.root,'legacy-engine');fs.writeFileSync(legacy,'old loader-only engine');
+ old.session.engine=legacy;old.session.engineHash=await hash(legacy);atomicJSON(old.session.file,old.session);
+ const before=fs.readFileSync(old.session.file),oldOutput=old.session.output;
+ await assert.rejects(()=>f.make().restore(old.session.id),/older Pause protocol/);
+ assert.deepEqual(fs.readFileSync(old.session.file),before);
+ const fresh=f.make(),end=settled(fresh);await fresh.restart(old.session.id,fake,f.models);await end;
+ assert.equal(fresh.session.phase,'completed');assert.equal(fresh.session.engine,fake);
+ assert.notEqual(fresh.session.output,oldOutput);assert(fs.existsSync(oldOutput));
 });

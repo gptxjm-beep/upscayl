@@ -97,7 +97,8 @@ for(const [count,model] of [[6,'high-fidelity-4x'],[50,'upscayl-lite-4x']]) {
   assert.equal(recovered.session.phase,'completed',JSON.stringify(recovered.snapshot()));assert.equal(recovered.session.output,output);
   for(const [name,time]of times)assert.equal(fs.statSync(path.join(output,name)).mtimeMs,time);
   assert(fs.readdirSync(output).every(n=>n.endsWith('.png')));
-  const result={count,completedAtPause:done.length,remaining:count-done.length,activeAtGate:gate.active,gateLatencyMs:gate.latencyMs,startsAfterGate:0,engineStopped:true};
+  const requestedAt=eventsOnDisk.find(e=>e.kind==='pause-request').data.completed;
+  const result={count,completedAtRequest:requestedAt,completedWhenPaused:done.length,completedAfterRequest:done.length-requestedAt,remaining:count-done.length,activeAtGate:gate.active,awaitingSaveAtGate:gate.awaitingSave,gateLatencyMs:gate.latencyMs,startsAfterGate:0,engineStopped:true};
   console.log('jm.3 inference-gate evidence:',JSON.stringify(result));
   fs.writeFileSync(path.join(root,'.test-artifacts',`gate-${count}.json`),JSON.stringify(result,null,2));
  });
@@ -112,4 +113,16 @@ test('STOP cancels the real native child and retains only validated adopted imag
  for(const i of done) {const info=await sharp(path.join(manager.session.output,i.name)).metadata();assert.equal(info.width,40);assert.equal(info.height,40);}
  assert(!fs.existsSync(manager.session.file));assert.deepEqual(manager.discover(),[]);assert(!fs.existsSync(path.join(manager.session.output,'.upscayl-session','work')));
  console.log('Native STOP cancellation passed on software Vulkan; no GPU claim.');
+});
+
+test('unexpected native crash at START retains a recoverable journal',{timeout:660000},async t=>{
+ const f=await fixture(t,6),manager=f.make();let killed=false;
+ manager.on('inference-start',()=>{if(!killed){killed=true;manager.child.kill('SIGKILL');}});
+ const exited=wait(manager);await manager.create(f.settings,path.join(root,'resources/models'),engine);await exited;
+ assert(killed);assert.equal(manager.session.phase,'failed');assert(!manager.child);assert(fs.existsSync(manager.session.file));
+ const completed=manager.session.items.filter(i=>i.state==='completed').map(i=>[i.name,fs.statSync(path.join(manager.session.output,i.name)).mtimeMs]);
+ const recovered=f.make(),finished=wait(recovered);await recovered.restore(manager.session.id);await finished;
+ assert.equal(recovered.session.phase,'completed');
+ for(const [name,time]of completed)assert.equal(fs.statSync(path.join(recovered.session.output,name)).mtimeMs,time);
+ console.log('Real NCNN process killed at START and recovered on software Vulkan; not a physical power-cut/GPU-driver test.');
 });
