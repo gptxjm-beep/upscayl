@@ -35,6 +35,9 @@ export class BatchManager extends EventEmitter {
   private finishing: Promise<void> = Promise.resolve();
   constructor(public registry: string, private metadata: (input: string, output: string) => Promise<void> = async () => {},
     private launch = (engine:string,args:string[]) => spawn(engine,args,{windowsHide:true})) { super(); }
+  hasActiveBatch() {
+    return this.busy || this.settling || !!this.child || !!this.session && ['running','pausing','paused','failed'].includes(this.session.phase);
+  }
   private save() {
     const s = this.session!;
     s.updated = new Date().toISOString();
@@ -56,7 +59,7 @@ export class BatchManager extends EventEmitter {
       try {
         const link = readJSON<{ file: string; source: string }>(path.join(this.registry, n));
         const s = readJSON<Session>(link.file);
-        if(s.phase==='cancelled'&&s.cancelConfirmed) {
+        if(s.cancelConfirmed) {
           this.validateRecord(s,s.id,link.file);this.requireStopped(s);this.removeSession(s);return [];
         }
         if(s.version !== 1 || ['completed','cancelled'].includes(s.phase) || (source && path.resolve(source) !== s.source)) return [];
@@ -122,13 +125,13 @@ export class BatchManager extends EventEmitter {
     const link = readJSON<{file:string}>(path.join(this.registry,id+'.json'));
     const s = readJSON<Session>(link.file);
     this.validateRecord(s,id,link.file);this.requireStopped(s);
-    if(s.phase==='cancelled')throw new Error('This batch was permanently cancelled.');
+    if(s.phase==='cancelled'||s.cancelConfirmed)throw new Error('This batch was permanently cancelled.');
     this.session = s;
     s.phase = 'paused';
     await this.resume();
   }
   async resume() {
-    if(this.child || this.busy || this.cancelling || this.settling || !this.session || this.closing || ['completed','cancelled'].includes(this.session.phase)) return;
+    if(this.child || this.busy || this.cancelling || this.settling || !this.session || this.closing || this.session.cancelConfirmed || ['completed','cancelled'].includes(this.session.phase)) return;
     this.busy = true; this.cancelRequested = false;
     const s = this.session;
     try {
@@ -192,6 +195,7 @@ export class BatchManager extends EventEmitter {
             const id=Number(trace[2]);if(!pending[id])continue;
             this.log('inference',{event:trace[1],id,source:pending[id].source,tick:trace[3]});
             if(trace[1]==='START') {pending[id].state='processing';this.emit('inference-start',id);}
+            if(trace[1]==='END') pending[id].state='saving';
             if(trace[1]==='DEFER') pending[id].state='pending';
             this.emit('native-trace',{event:trace[1],id,tick:trace[3]});continue;
           }
@@ -200,7 +204,7 @@ export class BatchManager extends EventEmitter {
             this.gateClosed=true;
             const active=gate[2].trim()?gate[2].trim().split(' ').map(Number):[];
             const elapsed=this.pauseRequestedAt?process.hrtime(this.pauseRequestedAt):undefined;
-            const evidence={tick:gate[1],active,latencyMs:elapsed?elapsed[0]*1000+elapsed[1]/1e6:null};
+            const evidence={tick:gate[1],active,awaitingSave:pending.flatMap((item,id)=>['saving','committing'].includes(item.state)?[id]:[]),latencyMs:elapsed?elapsed[0]*1000+elapsed[1]/1e6:null};
             this.log('pause-gate',evidence);this.emit('gate-closed',evidence);continue;
           }
           const match = /^@JM([12]) (\d+) ([01])(?: ([a-z]+) (-?\d+))?$/.exec(line);
@@ -241,7 +245,7 @@ export class BatchManager extends EventEmitter {
             this.settling=false;this.save();
           }
           this.log('drained',{phase:s.phase,completedAfterPause:this.pauseRequestedAt===undefined?null:this.snapshot()!.completed-this.completedAtPause,engineStopped:true});
-        } catch(e) { s.phase='failed'; s.error=String(e); try { this.save(); } catch(persist) { this.emit('problem',String(persist)); } this.emit('problem',String(e)); }
+        } catch(e) { s.phase=s.cancelConfirmed?'cancelled':'failed'; s.error=String(e); try { this.save(); } catch(persist) { this.emit('problem',String(persist)); } this.emit('problem',String(e)); }
         finally { this.child=undefined;this.settling=false; this.emit('settled'); }
       });
     } catch(e) { s.phase=this.cancelRequested?'cancelled':'failed';s.error=String(e);this.save();throw e; }
@@ -286,7 +290,10 @@ export class BatchManager extends EventEmitter {
     if(this.cancelling)return;
     this.cancelling=true;this.cancelRequested=true;
     try {
-      if(this.session&&!['completed','cancelled'].includes(this.session.phase)){this.session.phase='cancelled';this.session.cancelConfirmed=true;this.save();}
+      if(this.session&&!['completed','cancelled'].includes(this.session.phase)){
+        this.session.phase='cancelled';this.session.cancelConfirmed=true;
+        try{this.save();}catch(error){this.emit('problem','Cannot persist cancellation; stopping engine before cleanup: '+String(error));}
+      }
       if(this.child) {
         const ended=this.awaitSettled(10000);
         this.child.kill('SIGKILL');await ended;
@@ -299,7 +306,7 @@ export class BatchManager extends EventEmitter {
   private awaitSettled(timeoutMs:number) {
     return new Promise<void>((resolve,reject)=>{
       const done=()=>{clearTimeout(timer);resolve();};
-      const timer=setTimeout(()=>{this.off('settled',done);reject(new Error('Engine did not exit before shutdown deadline; recovery journal retained.'));},timeoutMs);
+      const timer=setTimeout(()=>{this.off('settled',done);reject(new Error('Engine shutdown or pending output validation exceeded the deadline; recovery journal retained.'));},timeoutMs);
       this.once('settled',done);
     });
   }

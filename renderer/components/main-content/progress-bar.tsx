@@ -31,7 +31,7 @@ function ProgressBar({
   }, [progress]);
 
   const stopHandler = () => {
-    window.electron.send(ELECTRON_COMMANDS.STOP,batchJob?{batchSessionId:batchJob.id}:undefined);
+    window.electron.send(ELECTRON_COMMANDS.STOP,batchMode?{batch:true,batchSessionId:batchJob?.id}:undefined);
     logit("🛑 Stopping Upscayl");
   };
 

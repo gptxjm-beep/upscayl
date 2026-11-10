@@ -29,11 +29,11 @@ const screenshots=path.join(root,'.test-artifacts');fs.mkdirSync(screenshots,{re
   const stop=require(path.join(root,'export/electron/commands/stop.js')).default;
   const get=integration.batchManager,show=dialog.showMessageBox;
   try {
-   for(const phase of ['running','pausing','paused'])for(const response of [0,1]) {
-    let cancelled=0;const manager={session:{id:'stop-fixture',phase},cancel:async()=>{cancelled++;}};
+   for(const phase of ['preparing','running','pausing','paused'])for(const response of [0,1]) {
+    let cancelled=0;const manager={session:phase==='preparing'?undefined:{id:'stop-fixture',phase},hasActiveBatch:()=>true,cancel:async()=>{cancelled++;}};
     integration.batchManager=()=>manager;
     dialog.showMessageBox=async (...args)=>{const options=args[args.length-1];assert.equal(options.title,'Cancel Batch Processing?');assert.deepEqual(options.buttons,['Go Back','Yes, Cancel Batch']);assert.equal(options.defaultId,0);return {response};};
-    await stop(null,{batchSessionId:'stop-fixture'});assert.equal(cancelled,response);assert.equal(manager.session.phase,phase);
+    await stop(null,{batch:true,batchSessionId:manager.session?.id});assert.equal(cancelled,response);assert.equal(manager.session?.phase,phase==='preparing'?undefined:phase);
    }
    let dialogs=0;integration.batchManager=()=>({session:{id:'paused-batch',phase:'paused'}});
    dialog.showMessageBox=async()=>{dialogs++;return {response:0};};

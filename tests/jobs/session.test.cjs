@@ -188,3 +188,29 @@ test('failed Start From Beginning retains the previous durable journal',async t=
  const before=fs.readFileSync(old.session.file);fs.unlinkSync(path.join(f.models,'test-4x.param'));
  await assert.rejects(()=>f.make().restart(old.session.id));assert.deepEqual(fs.readFileSync(old.session.file),before);
 });
+
+test('a cancellation journal-write failure never leaves the engine running',async t=>{
+ const f=await fixture(t,12),manager=f.make();await manager.create(f.settings,f.models,fake);
+ const save=manager.save.bind(manager);let injected=false;
+ manager.save=()=>{if(manager.session.phase==='cancelled'&&!injected){injected=true;throw Error('injected disk-full');}save();};
+ await manager.cancel();assert(injected);assert(!manager.child);assert(!fs.existsSync(manager.session.file));
+});
+
+test('cleanup failure retains permanent cancellation intent and cannot resume',async t=>{
+ const f=await fixture(t,12),manager=f.make();await manager.create(f.settings,f.models,fake);await manager.shutdown();
+ manager.removeSession=()=>{throw Error('injected sharing violation');};
+ await assert.rejects(()=>manager.cancel(),/sharing violation/);
+ assert.equal(readJSON(manager.session.file).cancelConfirmed,true);
+ await assert.rejects(()=>f.make().restore(manager.session.id),/permanently cancelled/);
+ const next=f.make();assert.deepEqual(next.discover(),[]);assert(!fs.existsSync(manager.session.file));
+});
+
+test('restore and start-over both reject a still-owned engine process',async t=>{
+ const f=await fixture(t,12),old=f.make();
+ old.launch=(_engine,args)=>spawn(process.execPath,['-e','setInterval(()=>{},1000)','--',...args]);
+ await old.create(f.settings,f.models,fake);
+ try {
+  await assert.rejects(()=>f.make().restore(old.session.id),/still active/);
+  await assert.rejects(()=>f.make().restart(old.session.id),/still active/);
+ }finally{await old.cancel();}
+});

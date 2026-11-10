@@ -10,7 +10,9 @@ const stop = async (event, payload) => {
 
   const manager=batchManager();
   if(payload?.batchSessionId && payload.batchSessionId!==manager.session?.id)return;
-  if(payload?.batchSessionId && manager.session && ['running','pausing','paused','failed'].includes(manager.session.phase)) {
+  const batchRequest=payload?.batch || payload?.batchSessionId;
+  if(batchRequest&&!manager.hasActiveBatch())return;
+  if(batchRequest) {
     const options={type:'warning' as const,title:'Cancel Batch Processing?',
       message:'Are you sure you want to permanently cancel this batch?',
       detail:'Your completed images will be kept, but the temporary session and recovery files will be deleted. You will not be able to resume this batch later.',
