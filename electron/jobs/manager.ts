@@ -299,7 +299,12 @@ export class BatchManager extends EventEmitter {
   private async validate(item: Item, file: string) {
     const s=this.session!; const o=s.settings;
     const expected=this.outputDimensions(item);
-    const image = sharp(file,{failOn:'warning',limitInputPixels:false});
+    // A filename input can leave a JPEG memory map in libvips' operation
+    // cache even with files:0. Windows then refuses atomic adoption/unlink.
+    // Read the encoded bytes with a handle closed before decode; never retain
+    // a raw image buffer in JavaScript or a mapping of the file being adopted.
+    const encoded=await fs.promises.readFile(file);
+    const image = sharp(encoded,{failOn:'warning',limitInputPixels:false});
     const info = await image.metadata();
     if(info.width !== expected[0] || info.height !== expected[1] || info.format !== ({jpg:'jpeg',png:'png',webp:'webp'}[o.saveImageAs])) throw new Error('Invalid output dimensions/format');
     // Force full decode without keeping a whole raw image in JavaScript memory.
