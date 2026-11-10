@@ -252,7 +252,12 @@ test('fresh run uses current settings and preserves old adopted output bytes',as
  const adopted=old.session.items.filter(i=>i.state==='completed').map(i=>[path.join(old.session.output,i.name),fs.readFileSync(path.join(old.session.output,i.name))]);
  assert(adopted.length>0);const previousId=old.session.id;
  const current={...f.settings,scale:'2',saveImageAs:'jpg',tileSize:64,ttaMode:true};
- const next=f.make(),done=settled(next);await next.restart(previousId,fake,f.models,current);await next.whenStarted();await done;
+ const next=f.make(),done=settled(next);
+ const watchdog=setTimeout(()=>{
+  console.error('Fresh JPG diagnostic:',JSON.stringify(next.snapshot()),JSON.stringify(next.session?.items.filter(i=>i.error).map(i=>({name:i.name,error:i.error}))));
+  void next.cancel().catch(console.error);
+ },15000);t.after(()=>clearTimeout(watchdog));
+ await next.restart(previousId,fake,f.models,current);await next.whenStarted();await done;clearTimeout(watchdog);
  assert.equal(next.session.phase,'completed');assert.deepEqual(next.session.settings,current);
  for(const item of next.session.items){const info=await sharp(path.join(next.session.output,item.name)).metadata();assert.equal(info.width,4);assert.equal(info.height,6);assert.equal(info.format,'jpeg');}
  for(const [file,bytes]of adopted)assert.deepEqual(fs.readFileSync(file),bytes);
