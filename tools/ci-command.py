@@ -6,6 +6,7 @@ import subprocess
 import sys
 import os
 import signal
+import re
 
 # Windows redirected consoles may default to a legacy codepage.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -51,7 +52,10 @@ if args.label == 'software-Vulkan-functional':
             value=line.split(marker,1)[1].replace('%','%25').replace('\r','%0D')
             print(f'::notice title=jm.2 software Vulkan reference::{value}',flush=True)
 if returncode:
-    tail=output[-3500:]
+    lines=output.splitlines()
+    markers=[i for i,line in enumerate(lines) if re.search(r'(?:fatal )?error(?:\s+[A-Z]+\d+)?\s*:|CMake Error|undefined reference|\bLNK\d+\b',line,re.I)]
+    head='\n'.join('\n'.join(lines[max(0,i-1):i+2]) for i in markers[:8])
+    tail=(head[:5000]+'\n... final output ...\n'+output[-1500:]) if head else output[-3500:]
     escaped=tail.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
     print(f'::error title={name}::{escaped}',flush=True)
 raise SystemExit(returncode)

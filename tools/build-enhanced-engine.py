@@ -27,6 +27,8 @@ for name, url in [('ncnn','https://github.com/Tencent/ncnn.git'),('libwebp','htt
 
 build=vendor / 'build'
 run('cmake','-S',vendor / 'src','-B',build,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF',*sys.argv[1:])
+# Fail codec compilation before unrelated NCNN warnings can bury the first error.
+run('cmake','--build',build,'--config','Release','--target','jm-png-test','--parallel','2')
 run('cmake','--build',build,'--config','Release','--parallel','2')
 exe='upscayl-bin.exe' if sys.platform=='win32' else 'upscayl-bin'
 candidates=[build / 'Release' / exe,build / exe]
