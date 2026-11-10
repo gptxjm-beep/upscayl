@@ -55,7 +55,9 @@ if returncode:
     lines=output.splitlines()
     markers=[i for i,line in enumerate(lines) if re.search(r'(?:fatal )?error(?:\s+[A-Z]+\d+)?\s*:|CMake Error|undefined reference|\bLNK\d+\b',line,re.I)]
     head='\n'.join('\n'.join(lines[max(0,i-1):i+2]) for i in markers[:8])
-    tail=(head[:5000]+'\n... final output ...\n'+output[-1500:]) if head else output[-3500:]
+    test_failures='\n'.join('\n'.join(lines[max(0,i):i+35]) for i,line in enumerate(lines) if re.match(r'^not ok ',line))
+    head=(test_failures[:5500]+'\n'+head) if test_failures else head
+    tail=(head[:6000]+'\n... final output ...\n'+output[-1500:]) if head else output[-3500:]
     escaped=tail.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
     print(f'::error title={name}::{escaped}',flush=True)
 raise SystemExit(returncode)
