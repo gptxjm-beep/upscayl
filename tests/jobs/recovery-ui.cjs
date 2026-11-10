@@ -21,10 +21,12 @@ async function open(){
   dialog.showOpenDialog=async()=>({canceled:false,filePaths:[source]});
  },{root,node:process.execPath,source});
  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
- try{await page.getByRole('button',{name:'Close',exact:true}).click({timeout:5000});}catch{}
  await page.getByRole('button',{name:'Resume Processing',exact:true}).waitFor();
  await page.getByRole('button',{name:'Not Now',exact:true}).click();
  await page.getByRole('button',{name:'Resume Processing',exact:true}).waitFor({state:'hidden'});
+ // A fresh test profile also has onboarding beneath the recovery reminder.
+ // Dismiss it after Not Now, when it can actually receive pointer events.
+ try{await page.getByRole('button',{name:'Close',exact:true}).click({timeout:2000});}catch{}
  return {app,page};
 }
 (async()=>{
