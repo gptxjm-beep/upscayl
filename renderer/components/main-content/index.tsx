@@ -1,6 +1,6 @@
 "use client";
 import useLogger from "../hooks/use-logger";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { ELECTRON_COMMANDS } from "@common/electron-commands";
 import { useAtom, useAtomValue } from "jotai";
 import {
@@ -65,7 +65,9 @@ const MainContent = ({
 
   const [outputPath, setOutputPath] = useAtom(savedOutputPathAtom);
   const progress = useAtomValue(progressAtom);
-  const batchMode = useAtomValue(batchModeAtom);
+  const [batchMode,setBatchMode] = useAtom(batchModeAtom);
+  const opening=useRef(false);
+  const [openingImage,setOpeningImage]=useState(false);
 
   const viewType = useAtomValue(viewTypeAtom);
   const lensSize = useAtomValue(lensSizeAtom);
@@ -121,46 +123,37 @@ const MainContent = ({
     [imagePath],
   );
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    resetImagePaths();
-    if (
-      e.dataTransfer.items.length === 0 ||
-      e.dataTransfer.files.length === 0
-    ) {
-      logit("👎 No valid files dropped");
-      toast({
-        title: t("ERRORS.INVALID_IMAGE_ERROR.TITLE"),
-        description: t("ERRORS.INVALID_IMAGE_ERROR.ADDITIONAL_DESCRIPTION"),
-      });
-      return;
-    }
-    const type = e.dataTransfer.items[0].type;
-    const filePath = e.dataTransfer.files[0].path;
-    const extension = e.dataTransfer.files[0].name.split(".").at(-1);
-    logit("⤵️ Dropped file: ", JSON.stringify({ type, filePath, extension }));
-    if (
-      !type.includes("image") ||
-      !VALID_IMAGE_FORMATS.includes(extension.toLowerCase())
-    ) {
-      logit("🚫 Invalid file dropped");
-      toast({
-        title: t("ERRORS.INVALID_IMAGE_ERROR.TITLE"),
-        description: t("ERRORS.INVALID_IMAGE_ERROR.ADDITIONAL_DESCRIPTION"),
-      });
-    } else {
-      logit("🖼 Setting image path: ", filePath);
-      setImagePath(filePath);
-      const dirname = getDirectoryFromPath(filePath);
-      logit("🗂 Setting output path: ", dirname);
-      if (!FEATURE_FLAGS.APP_STORE_BUILD) {
-        if (!rememberOutputFolder) {
-          setOutputPath(dirname);
-        }
-      }
-      validateImagePath(filePath);
-    }
+  const handleDrop = async (e:React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();e.stopPropagation();
+    if(progress||opening.current)return;
+    const file=e.dataTransfer.files?.[0];
+    if(!file){toast({title:t('INPUT_DROP.TITLE'),description:t('INPUT_DROP.LOCAL_ONLY')});return;}
+    const filePath=window.electron.getPathForFile(file);
+    if(!filePath){logit('Drop rejected: Electron webUtils returned no local path');toast({title:t('INPUT_DROP.TITLE'),description:t('INPUT_DROP.LOCAL_ONLY')});return;}
+    opening.current=true;setOpeningImage(true);
+    try{
+      // MIME may legitimately be empty. Main verifies bytes and filesystem access.
+      const result=await window.electron.invoke(ELECTRON_COMMANDS.VALIDATE_INPUT_IMAGE,filePath);
+      if(!result?.ok){logit('Drop rejected',result?.code);toast({title:t('INPUT_DROP.TITLE'),description:t('INPUT_DROP.INVALID')});return;}
+      resetImagePaths();setBatchMode(false);setImagePath(result.path);
+      setDimensions({width:result.width,height:result.height});
+      if(!FEATURE_FLAGS.APP_STORE_BUILD&&!rememberOutputFolder)setOutputPath(getDirectoryFromPath(result.path));
+      logit('Dropped image opened using Electron webUtils');
+    }catch(error){logit('Drop failed',String(error));toast({title:t('INPUT_DROP.TITLE'),description:t('INPUT_DROP.INVALID')});}
+    finally{opening.current=false;setOpeningImage(false);}
   };
+
+  useEffect(()=>{
+    const prevent=(event:DragEvent)=>{
+      event.preventDefault();
+      if(event.type==='drop'&&!(event.target as Element)?.closest?.('[data-upscayl-drop-zone]')){
+        logit('Drop outside preview ignored; navigation prevented');
+        toast({title:t('INPUT_DROP.TITLE'),description:t('INPUT_DROP.PREVIEW_ONLY')});
+      }
+    };
+    window.addEventListener('dragover',prevent);window.addEventListener('drop',prevent);
+    return()=>{window.removeEventListener('dragover',prevent);window.removeEventListener('drop',prevent);};
+  },[logit,toast,t]);
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -268,12 +261,15 @@ const MainContent = ({
   return (
     <div
       className="relative flex h-screen w-full flex-col items-center justify-center"
+      data-upscayl-drop-zone
+      aria-busy={openingImage}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDoubleClick={batchMode ? selectFolderHandler : selectImageHandler}
     >
+      {openingImage&&<p role="status" className="absolute right-4 top-4 z-50 rounded-xl bg-base-200 px-4 py-2 text-sm">{t('INPUT_DROP.OPENING')}</p>}
       <MacTitlebarDragRegion />
 
       {progress.length > 0 &&

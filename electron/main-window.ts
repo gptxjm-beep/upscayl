@@ -1,3 +1,4 @@
+import log from 'electron-log';
 import { app, BrowserWindow, shell } from "electron";
 import { getPlatform } from "./utils/get-device-specs";
 import { join } from "path";
@@ -38,6 +39,11 @@ const createMainWindow = () => {
         slashes: true,
       });
 
+  mainWindow.webContents.on('will-navigate',(event,target)=>{
+    if(target.split('#')[0]!==url.split('#')[0]){
+      event.preventDefault();log.warn('Blocked renderer navigation outside the application document.');
+    }
+  });
   mainWindow.loadURL(url);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

@@ -1,3 +1,4 @@
+import { inspectImage } from './jobs/open-image';
 import { registerJobs, startBatch } from "./jobs/integration";
 import prepareNext from "electron-next";
 import { autoUpdater } from "electron-updater";
@@ -98,6 +99,11 @@ ipcMain.on(ELECTRON_COMMANDS.OPEN_FOLDER, openFolder);
 ipcMain.handle(ELECTRON_COMMANDS.SELECT_FOLDER, selectFolder);
 
 ipcMain.handle(ELECTRON_COMMANDS.SELECT_FILE, selectFile);
+ipcMain.handle(ELECTRON_COMMANDS.VALIDATE_INPUT_IMAGE,async (_event,input:unknown)=>{
+  const result=await inspectImage(input);
+  if(!result.ok)log.info('Input image rejected',{code:result.code,error:result.error});
+  return result;
+});
 
 ipcMain.on(ELECTRON_COMMANDS.GET_MODELS_LIST, getModelsList);
 

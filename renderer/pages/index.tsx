@@ -55,9 +55,11 @@ const Home = () => {
   const setUserStats = useSetAtom(userStatsAtom);
 
   const selectImageHandler = async () => {
-    resetImagePaths();
     const path = await window.electron.invoke(ELECTRON_COMMANDS.SELECT_FILE);
     if (path === null) return;
+    const checked=await window.electron.invoke(ELECTRON_COMMANDS.VALIDATE_INPUT_IMAGE,path);
+    if(!checked?.ok){toast({title:t('INPUT_DROP.TITLE'),description:t('INPUT_DROP.INVALID')});return;}
+    resetImagePaths();
     logit("🖼 Selected Image Path: ", path);
     setImagePath(path);
     const dirname = getDirectoryFromPath(path);

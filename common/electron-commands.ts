@@ -2,6 +2,7 @@ const ELECTRON_COMMANDS = {
   JOB_STATE: "jm:state", JOB_PAUSE: "jm:pause", JOB_RESUME: "jm:resume",
   JOB_GET: "jm:get", JOB_DISCOVER: "jm:discover",
   JOB_PROMPT: "jm:prompt", JOB_PROMPT_GET: "jm:prompt:get", JOB_PROMPT_ACTION: "jm:prompt:action", JOB_OPEN_LOGS: "jm:logs:open",
+  VALIDATE_INPUT_IMAGE: "Validate input image",
   SELECT_FILE: "Select a File",
   SELECT_FOLDER: "Select a Folder",
   UPSCAYL: "Upscale the Image",

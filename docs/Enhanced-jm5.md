@@ -22,3 +22,11 @@ Official release 1.0.0 files downloaded for evaluation: IllustrationJaNai V1 ESR
 Manhwa Null 1x has published source SHA-256 `7d7cee6e08f72cd231fa0d5083e7ec13fb464eff82cae73e0b1292ac6fe51f87`; its official Proton Drive source is blocked by this environment's network policy. No compatible conversion or quality claim is made without the original weights. No invented MangaOra entry is added.
 
 Two-stage scheduling and drag-and-drop work remain separate stages. GPU benchmarks must run on suitable hardware, using identical inputs/settings and at least three alternating runs; caches are not assumed flushed.
+
+## Stage 4 (isolated early repair) — native file drag-and-drop
+
+Electron 33 does not provide File.path. The preload exposes only the official webUtils.getPathForFile bridge. A native-backed File is resolved, then main validates an absolute local filesystem path, extension, readable regular file, actual format, dimensions and full decode. Missing MIME is accepted. The renderer replaces its image/output state only after success, preserves it on invalid input, rejects link-only drops, and ignores files outside the preview instead of navigating. A pending status is shown while reading. Window-level drop prevention and a main-frame navigation guard add protection without changing the existing security preferences.
+
+Native picker paths remain filesystem paths through Single and Double; literal '%' and '%20' filenames are not URI-decoded again. Select Image also keeps the previous image until validation succeeds or the chooser is cancelled.
+
+Local tests passed for backend path/content validation and the real native-backed File → Electron preload bridge → preview flow: JPG, PNG, WEBP, empty MIME, Arabic/spaces/%20/deep paths, invalid input preservation, outside drops, links, retry, Select Image and navigation rejection. Linux's documented Electron/libvips assertion requires executing the same validation function in external Node during this local UI test; this is explicit in test output. The Windows packaged test uses the real main IPC handler and bundled Sharp, with no such override, and additionally attempts preview of the controlled long PNG. Packaged-Windows results remain pending until that workflow passes.

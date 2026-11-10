@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const root=path.resolve(__dirname,'../..');
 test('Single reports success only for a zero-exit, fully validated, atomically adopted output',async t=>{
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm5-single-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));
- const input=path.join(folder,'صورة source.png');await sharp({create:{width:4,height:6,channels:3,background:'red'}}).png().toFile(input);
+ const input=path.join(folder,'صورة %20 source.png');await sharp({create:{width:4,height:6,channels:3,background:'red'}}).png().toFile(input);
  const sent=[];let spawned,command,enhanced,spawns=0;const config={stopped:false,setChildProcesses(){},setStopped(value){config.stopped=value;}};
  const window={webContents:{send:(...args)=>sent.push(args)},setProgressBar(){}};
  const mocks={
@@ -16,9 +16,9 @@ test('Single reports success only for a zero-exit, fully validated, atomically a
  const load=Module._load;Module._load=function(request,parent,isMain){let resolved;try{resolved=Module._resolveFilename(request,parent);}catch{};const key=resolved&&path.relative(path.join(root,'export'),resolved).replace(/\\/g,'/');if(mocks[key])return mocks[key];return load.apply(this,arguments);};
  let handler;try{handler=require('../../export/electron/commands/image-upscayl.js').default;}finally{Module._load=load;}
  const settings={imagePath:input,outputPath:folder,model:'upscayl-standard-4x',scale:'2',gpuId:'0',saveImageAs:'png',overwrite:false,useCustomWidth:false,tileSize:32,compression:'0',copyMetadata:false};
- const final=path.join(folder,'صورة source_upscayl_2x_upscayl-standard-4x.png');
+ const final=path.join(folder,'صورة %20 source_upscayl_2x_upscayl-standard-4x.png');
  for(const mode of ['nonzero','partial','stopped','success']){
-  sent.length=0;await handler(null,settings);const temp=command[command.indexOf('-o')+1];assert.notEqual(temp,final);assert.equal(enhanced,true);
+  sent.length=0;await handler(null,settings);const temp=command[command.indexOf('-o')+1];assert.notEqual(temp,final);assert.equal(enhanced,true);assert.equal(command[command.indexOf('-i')+1],input);
   if(mode==='partial'||mode==='stopped')fs.writeFileSync(temp,'incomplete PNG');else await sharp(input).resize(8,12).png().toFile(temp);
   if(mode==='stopped')config.stopped=true;
   await spawned.listeners('close')[0](mode==='nonzero'?2:0,null);
