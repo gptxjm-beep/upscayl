@@ -1,0 +1,5 @@
+import {useAtomValue} from 'jotai';
+import {localeAtom} from '@/atoms/translations-atom';
+const en={title:'Saved session needs attention',description:'This recovery record cannot currently be opened. Its images and recovery files have been preserved.',missing:'The saved journal and its backup are missing or unavailable.',unreadable:'The recovery record is damaged or has an unsupported structure.',archive:'Archive reminder',keep:'Keeps images, checkpoints and original recovery files.',later:'Not now',archiving:'Archiving reminder…',logs:'Open Logs Folder'};
+const ar:typeof en={title:'جلسة محفوظة تحتاج مراجعة',description:'تعذر فتح سجل الاستعادة حاليًا. حُفظت الصور وملفات الاستعادة كما هي.',missing:'ملف الجلسة ونسخته الاحتياطية مفقودان أو غير متاحين.',unreadable:'سجل الاستعادة تالف أو بنيته غير مدعومة.',archive:'أرشفة التنبيه',keep:'يحافظ على الصور والملفات الوسيطة وسجلات الاستعادة الأصلية.',later:'ليس الآن',archiving:'جارٍ أرشفة التنبيه…',logs:'فتح مجلد السجلات'};
+export default function useRecoveryIssueLabels(){return useAtomValue(localeAtom)==='ar'?ar:en;}

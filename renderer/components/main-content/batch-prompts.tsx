@@ -10,15 +10,16 @@ import { ELECTRON_COMMANDS as C } from '@common/electron-commands';
 import type { BatchPrompt,PromptChoice } from '@common/types/batch-ui';
 import type { BatchUpscaylPayload } from '@common/types/types';
 import useTranslation from '../hooks/use-translation';
+import useRecoveryIssueLabels from '../hooks/use-recovery-issue-labels';
 const folderName=(source:string)=>source.replace(/[\\/]+$/,'').split(/[\\/]/).pop()||source;
 const modelName=(id:string)=>({'upscayl-standard-4x':'Upscayl Standard','upscayl-lite-4x':'Upscayl Lite','high-fidelity-4x':'High Fidelity','digital-art-4x':'Digital Art','ultramix-balanced-4x':'Ultramix Balanced','ultrasharp-4x':'Ultrasharp','remacri-4x':'Remacri'}[id]||modelDisplayName(id));
 function Settings({value,title}:{value:BatchUpscaylPayload;title:string}){
  return <div className="min-w-0 rounded-2xl border border-base-content/10 bg-base-100/40 p-4"><p className="mb-2 text-xs font-medium text-base-content/60">{title}</p><p className="break-words font-semibold">{value.useTwoModels?`${modelName(value.model)} (${getModelScale(value.model)}X) → ${modelName(value.secondModel||'')} (${getModelScale(value.secondModel||'')}X)`:modelName(value.model)}</p><p className="mt-1 text-sm text-base-content/70">{value.useCustomWidth?`${value.customWidth}px`:`${value.scale}×`} · {value.saveImageAs.toUpperCase()}</p></div>;
 }
 function PromptCard({prompt}:{prompt:BatchPrompt}){
- const t=useTranslation(),clicked=useRef(false);
+ const t=useTranslation(),issueLabels=useRecoveryIssueLabels(),clicked=useRef(false);
  const [pending,setPending]=useState<PromptChoice|null>(null),[error,setError]=useState('');
- const stop=prompt.kind==='stop',startup=prompt.kind==='startup',session=prompt.session;
+ const stop=prompt.kind==='stop',startup=prompt.kind==='startup',notice=prompt.kind==='recovery-issue',session=prompt.session;
  const busy=!!pending||prompt.busy;
  async function act(choice:PromptChoice){
   if(clicked.current||prompt.busy)return;clicked.current=true;setPending(choice);setError('');
@@ -30,7 +31,8 @@ function PromptCard({prompt}:{prompt:BatchPrompt}){
  return <Dialog open onOpenChange={open=>{if(!open&&!busy)void act('dismiss');}}>
   <DialogContent hideCloseButton className="z-[100] max-h-[90vh] w-[calc(100%_-_2rem)] max-w-2xl overflow-y-auto rounded-3xl border-base-content/10 bg-base-200 p-6 text-base-content shadow-2xl sm:rounded-3xl"
    onEscapeKeyDown={e=>{if(busy)e.preventDefault();}} onPointerDownOutside={e=>e.preventDefault()}>
-   <div className="flex items-center gap-3"><UpscaylSVGLogo className="h-10 w-10 shrink-0"/><div className="min-w-0"><DialogTitle className="text-xl font-bold">{t(stop?'BATCH_UI.STOP_TITLE':startup?'BATCH_UI.STARTUP_TITLE':'BATCH_UI.FOLDER_TITLE')}</DialogTitle><DialogDescription className="mt-1 text-sm text-base-content/70">{t(stop?'BATCH_UI.STOP_DESCRIPTION':startup?'BATCH_UI.STARTUP_DESCRIPTION':'BATCH_UI.FOLDER_DESCRIPTION')}</DialogDescription></div></div>
+   <div className="flex items-center gap-3"><UpscaylSVGLogo className="h-10 w-10 shrink-0"/><div className="min-w-0"><DialogTitle className="text-xl font-bold">{notice?issueLabels.title:t(stop?'BATCH_UI.STOP_TITLE':startup?'BATCH_UI.STARTUP_TITLE':'BATCH_UI.FOLDER_TITLE')}</DialogTitle><DialogDescription className="mt-1 text-sm text-base-content/70">{notice?issueLabels.description:t(stop?'BATCH_UI.STOP_DESCRIPTION':startup?'BATCH_UI.STARTUP_DESCRIPTION':'BATCH_UI.FOLDER_DESCRIPTION')}</DialogDescription></div></div>
+   {notice&&prompt.issue&&<div className="rounded-xl border border-base-content/10 p-4 text-sm"><p>{issueLabels[prompt.issue.reason]}</p><p className="mt-2 break-all text-xs text-base-content/60">{prompt.issue.journal||prompt.issue.pointer}</p><p className="mt-3">{issueLabels.keep}</p></div>}
    {!stop&&session&&<>
     <div className="rounded-2xl border border-base-content/10 bg-base-100/30 p-4">
      <div className="mb-3 flex min-w-0 items-center gap-2"><Folder aria-hidden className="h-5 w-5 shrink-0 text-primary"/><p className="truncate text-base font-semibold" title={session.source}>{folderName(session.settings.singleImage||session.source)}</p></div>
@@ -44,11 +46,13 @@ function PromptCard({prompt}:{prompt:BatchPrompt}){
     </div>
    </>}
    {(error||prompt.error)&&<p role="alert" className="break-words rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error||prompt.error}</p>}
-   {busy&&<p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-base-content/70"><Loader2 aria-hidden className="h-4 w-4 animate-spin"/>{t(stop?'BATCH_UI.STOPPING':pending==='fresh'?'BATCH_UI.PREPARING':'BATCH_UI.RECOVERING')}</p>}
+   {busy&&<p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-base-content/70"><Loader2 aria-hidden className="h-4 w-4 animate-spin"/>{notice?issueLabels.archiving:t(stop?'BATCH_UI.STOPPING':pending==='fresh'?'BATCH_UI.PREPARING':'BATCH_UI.RECOVERING')}</p>}
    <div className={`grid gap-2 ${startup||stop?'sm:grid-cols-2':''}`}>
-    {!stop&&<button className="btn btn-primary h-auto min-h-12 py-3" disabled={busy} onClick={()=>void act('resume')}><Play aria-hidden className="h-4 w-4"/>{label('resume',t(startup?'BATCH_UI.RESUME_PROCESSING':'BATCH_UI.RESUME_PREVIOUS'))}</button>}
-    {!startup&&!stop&&<button className="btn btn-outline h-auto min-h-12 flex-col gap-1 py-3" disabled={busy||!prompt.currentSettings} onClick={()=>void act('fresh')}><span className="flex items-center justify-center gap-2"><RotateCcw aria-hidden className="h-4 w-4"/>{label('fresh',t('BATCH_UI.START_FRESH'))}</span><span className="text-xs font-normal opacity-70">{t('BATCH_UI.KEEP_RESULTS')}</span></button>}
-    <button autoFocus={stop} className="btn btn-outline" disabled={busy} onClick={()=>void act('dismiss')}>{t(stop?'BATCH_UI.GO_BACK':startup?'BATCH_UI.NOT_NOW':'BATCH_UI.CANCEL')}</button>
+    {notice&&<button className="btn btn-primary" disabled={busy} onClick={()=>void act('archive')}>{pending==='archive'?issueLabels.archiving:issueLabels.archive}</button>}
+    {!stop&&!notice&&<button className="btn btn-primary h-auto min-h-12 py-3" disabled={busy} onClick={()=>void act('resume')}><Play aria-hidden className="h-4 w-4"/>{label('resume',t(startup?'BATCH_UI.RESUME_PROCESSING':'BATCH_UI.RESUME_PREVIOUS'))}</button>}
+    {!startup&&!stop&&!notice&&<button className="btn btn-outline h-auto min-h-12 flex-col gap-1 py-3" disabled={busy||!prompt.currentSettings} onClick={()=>void act('fresh')}><span className="flex items-center justify-center gap-2"><RotateCcw aria-hidden className="h-4 w-4"/>{label('fresh',t('BATCH_UI.START_FRESH'))}</span><span className="text-xs font-normal opacity-70">{t('BATCH_UI.KEEP_RESULTS')}</span></button>}
+    <button autoFocus={stop} className="btn btn-outline" disabled={busy} onClick={()=>void act('dismiss')}>{notice?issueLabels.later:t(stop?'BATCH_UI.GO_BACK':startup?'BATCH_UI.NOT_NOW':'BATCH_UI.CANCEL')}</button>
+    {notice&&<button className="btn btn-outline" disabled={busy} onClick={()=>{void window.electron.invoke(C.JOB_OPEN_LOGS);}}>{issueLabels.logs}</button>}
     {stop&&<button className="btn btn-error" disabled={busy} onClick={()=>void act('stop')}>{label('stop',t('BATCH_UI.STOP_TASK'))}</button>}
    </div>
   </DialogContent>

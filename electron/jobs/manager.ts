@@ -10,6 +10,8 @@ import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { EventEmitter } from 'events';
 import sharp from 'sharp';
 import { atomicJSON, readJSON, hash } from './store';
+import { recoveryIssue, archiveRecoveryIssue } from './recovery-issues';
+import type { RecoveryIssue } from '../../common/types/batch-ui';
 import { ownsEngine } from './process-owner';
 import { writeBatchEvent, pruneBatchLogs } from './log';
 import { describeFailure, significantEngineLine } from './failure';
@@ -30,6 +32,7 @@ const extensions = /\.(png|jpe?g|jfif|webp)$/i;
 export class BatchManager extends EventEmitter {
   session?: Session;
   child?: ChildProcessWithoutNullStreams;
+  recoveryIssues:RecoveryIssue[]=[];
   private busy = false;
   private closing = false;
   private cancelRequested = false;
@@ -52,7 +55,7 @@ export class BatchManager extends EventEmitter {
   private save() {
     const s = this.session!;
     s.updated = new Date().toISOString();
-    atomicJSON(s.file, s);
+    atomicJSON(s.file, s,old=>this.validateRecord(old,s.id,s.file));
     const pointer=path.join(this.registry, s.id + '.json');
     if(!fs.existsSync(pointer)) atomicJSON(pointer, { file: s.file, source: s.source });
     this.emit('state', this.snapshot());
@@ -66,12 +69,13 @@ export class BatchManager extends EventEmitter {
       engineStopped: !this.child && !this.settling, gateClosed: this.gateClosed } : null;
   }
   discover(source?: string,singleImage?:string) {
+    this.recoveryIssues=[];
     if (!fs.existsSync(this.registry)) return [];
     return fs.readdirSync(this.registry).filter(n => /^[a-f0-9-]+\.json$/.test(n)).flatMap(n => {
       try {
         const link = readJSON<{ file: string; source: string;retired?:boolean }>(path.join(this.registry, n));
         if(link.retired)return [];
-        const s = readJSON<Session>(link.file);
+        const s = readJSON<Session>(link.file,value=>this.validateRecord(value,path.basename(n,'.json'),link.file));
         if(s.cancelConfirmed) {
           this.validateRecord(s,s.id,link.file);this.requireStopped(s);this.removeSession(s);return [];
         }
@@ -79,8 +83,12 @@ export class BatchManager extends EventEmitter {
         if(source&&(singleImage?path.resolve(singleImage)!==path.resolve(s.settings.singleImage||''):!!s.settings.singleImage))return [];
         return [{ id: s.id, source: s.source, output: s.output, phase: s.phase,
           completed: s.items.filter(i => i.state === 'completed').length, total: s.items.length, settings: s.settings,shutdown:s.shutdown }];
-      } catch(e) { const message=String(e);if(!this.reportedProblems.has(message)){this.reportedProblems.add(message);this.emit('problem',message);} return []; }
+      } catch(e) { const issue=recoveryIssue(this.registry,n,e);if(issue&&(!source||!issue.source||path.resolve(source)===path.resolve(issue.source)))this.recoveryIssues.push(issue);return []; }
     });
+  }
+  archiveRecoveryNotice(id:string){
+    const issue=this.recoveryIssues.find(item=>item.id===id);if(!issue)throw Error('Recovery notice is no longer available.');
+    archiveRecoveryIssue(this.registry,issue);this.recoveryIssues=this.recoveryIssues.filter(item=>item.id!==id);
   }
   async create(settings: BatchUpscaylPayload, modelDir: string, engine: string, secondModelDir?:string) {
     if (this.child || this.busy || this.cancelling || this.settling || this.session && ['preparing','resuming','recovering','running','pausing','paused'].includes(this.session.phase)) throw new Error('Finish or cancel the current batch first.');
@@ -138,7 +146,7 @@ export class BatchManager extends EventEmitter {
   async restart(id: string, replacementEngine?:string, replacementModels?:string, currentSettings?:BatchUpscaylPayload, replacementSecondModels?:string) {
     if(!/^[a-f0-9-]+$/.test(id)) throw new Error('Invalid session ID');
     const link=readJSON<{file:string}>(path.join(this.registry,id+'.json'));
-    const previous=readJSON<Session>(link.file);
+    const previous=readJSON<Session>(link.file,value=>this.validateRecord(value,id,link.file));
     this.validateRecord(previous,id,link.file);this.requireStopped(previous);
     const engine=replacementEngine || previous.engine;
     this.requireInferenceGate(engine);
@@ -155,7 +163,7 @@ export class BatchManager extends EventEmitter {
     if(!/^[a-f0-9-]+$/.test(id)) throw new Error('Invalid session ID');
     const link = readJSON<{file:string;retired?:boolean}>(path.join(this.registry,id+'.json'));
     if(link.retired)throw new Error('This session was replaced by a fresh run. Its existing output images are preserved.');
-    const s = readJSON<Session>(link.file);
+    const s = readJSON<Session>(link.file,value=>this.validateRecord(value,id,link.file));
     this.validateRecord(s,id,link.file);this.requireStopped(s);
     if(s.phase==='cancelled'||s.cancelConfirmed)throw new Error('This batch was permanently cancelled.');
     // Installed updates may replace the old executable at the same path.

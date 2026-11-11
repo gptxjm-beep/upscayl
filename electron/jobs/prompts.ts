@@ -22,7 +22,7 @@ export class BatchPrompts extends EventEmitter {
   async act(token:string,choice:PromptChoice):Promise<ActionResult> {
     const p=this.current;
     if(!p||p.token!==token||p.busy)return {ok:false,error:'This action is no longer available.'};
-    const allowed=p.kind==='startup'?['resume','dismiss']:p.kind==='folder'?['resume','fresh','dismiss']:['stop','dismiss'];
+    const allowed=p.kind==='recovery-issue'?['archive','dismiss']:p.kind==='startup'?['resume','dismiss']:p.kind==='folder'?['resume','fresh','dismiss']:['stop','dismiss'];
     if(!allowed.includes(choice))return {ok:false,error:'Invalid action for this dialog.'};
     p.busy=true;p.error=undefined;this.emit('change',{...p});
     try {

@@ -42,7 +42,14 @@ export function offerRecovery(source?:string,currentSettings?:BatchUpscaylPayloa
  if(active&&['preparing','resuming','recovering','running','pausing','paused'].includes(active.phase))return;
  const kind=source?'folder':'startup';
  const sessions=batchManager().discover(source,currentSettings?.singleImage).filter(s=>kind==='folder'||startupRecoverable(s));
- const session=sessions[0];if(!session)return;
+ const session=sessions[0];
+ if(!session){
+  const issue=batchManager().recoveryIssues[0];if(!issue)return;
+  lifecycle('recovery-index-issue',{id:issue.sessionId,reason:issue.reason,details:issue.details});
+  void batchPrompts.open({kind:'recovery-issue',issue},async choice=>{
+   if(choice==='archive'){batchManager().archiveRecoveryNotice(issue.id);lifecycle('recovery-notice-archived',{id:issue.sessionId});}
+  });return;
+ }
  lifecycle('recovery-detected',{kind,id:session.id,completed:session.completed,total:session.total});
  void batchPrompts.open({kind,session,currentSettings},async choice=>{
   lifecycle('recovery-action',{kind,id:session.id,choice});
