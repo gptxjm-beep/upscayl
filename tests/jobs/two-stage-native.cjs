@@ -14,7 +14,9 @@ function unreadableNativePNG(){
 }
 async function fixture(t,count=4){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm5-two-')),source=path.join(folder,'漫画 العربية'),models=path.join(folder,'models');fs.mkdirSync(source);fs.mkdirSync(models);
- t.after(()=>{const dest=path.join(root,'.test-artifacts/two-stage');fs.mkdirSync(dest,{recursive:true});const logs=path.join(folder,'logs');if(fs.existsSync(logs))for(const n of fs.readdirSync(logs))fs.copyFileSync(path.join(logs,n),path.join(dest,n));fs.rmSync(folder,{recursive:true,force:true});});
+ // Windows can retain a just-exited runtime DLL briefly (e.g. scanner handles).
+ // Retry transient cleanup errors within a fixed bound; never hide a failure.
+ t.after(()=>{const dest=path.join(root,'.test-artifacts/two-stage');fs.mkdirSync(dest,{recursive:true});const logs=path.join(folder,'logs');if(fs.existsSync(logs))for(const n of fs.readdirSync(logs))fs.copyFileSync(path.join(logs,n),path.join(dest,n));fs.rmSync(folder,{recursive:true,force:true,maxRetries:10,retryDelay:100});});
  for(const [id,op,value] of [['test-1x-half',2,.5],['test-1x-add',0,.1]]){fs.writeFileSync(path.join(models,id+'.param'),`7767517\n2 2\nInput input 0 1 data\nBinaryOp op 1 1 data output 0=${op} 1=1 2=${value}\n`);fs.writeFileSync(path.join(models,id+'.bin'),'');}
  const image=await sharp({create:{width:8,height:8,channels:3,background:{r:100,g:100,b:100}}}).png().toBuffer();for(let i=0;i<count;i++)fs.writeFileSync(path.join(source,String(i).padStart(4,'0')+'.png'),image);
  const settings={batchFolderPath:source,outputPath:folder,model:'test-1x-half',useTwoModels:true,secondModel:'test-1x-add',gpuId:'0',saveImageAs:'png',scale:'1',compression:'0',tileSize:32,ttaMode:false,useCustomWidth:false,customWidth:'',copyMetadata:false,noImageProcessing:false};
