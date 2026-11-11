@@ -12,6 +12,7 @@ inline bool acknowledge(int id,const char* stage){
     const auto file=jm::control/(std::to_string(id)+"."+stage+".ack");
     auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(180);
     while(!fs::exists(file)){
+        if(jm::job_failed)return false;
         if(std::chrono::steady_clock::now()>deadline)return false;
         std::error_code ec;auto lease=fs::last_write_time(jm::control/"lease",ec);
         if(ec||fs::file_time_type::clock::now()-lease>std::chrono::seconds(15))return false;
@@ -67,12 +68,13 @@ inline int worker(const fs::path& manifest,const fs::path& directory,const fs::p
     models.params={directory/(name.native()+PATHSTR(".param")),directory2/(name2.native()+PATHSTR(".param"))};models.bins={directory/(name.native()+PATHSTR(".bin")),directory2/(name2.native()+PATHSTR(".bin"))};
     uint64_t weights=0;std::error_code ec;for(auto& bin:models.bins){auto bytes=fs::file_size(bin,ec);if(ec){fprintf(stderr,"[two-stage] model file missing\n");return 2;}weights+=bytes;}
     // Conservative admission estimate, not a promise about actual driver VRAM.
-    const double workspace=(tta?2048.:512.)*tile*tile/10000.;
+    const double workspace=(tta?2048.:512.)*tile*tile/10000.*(precision?2.:1.);
     models.resident=ncnn::get_gpu_device(gpu)->get_heap_budget()>weights*8./1048576.+workspace+512.;
     fprintf(stderr,"[two-stage] capacity=1 admission-until=durable-final-ack model-memory=%s estimated-workspace-MiB=%.0f\n",models.resident?"two-resident":"one-resident-reload",workspace);
+    std::array<int,2> inference_failures{0,0};int checkpoint_failures=0;
     for(size_t i=0;i<list.size();++i){
         if(!jm::admit())break;const auto& entry=list[i];int id=(int)i;trace("ADMIT",id);
-        auto failed=[&](const char* stage,int code){jm::event(id,false,stage,code);acknowledge(id,"final");trace("RELEASE",id);};
+        auto failed=[&](const char* stage,int code){jm::event(id,false,stage,code);if(!jm::job_failed)acknowledge(id,"final");trace("RELEASE",id);};
         const int64_t width1=(int64_t)entry.width*scale,height1=(int64_t)entry.height*scale;
         if(!dimensions(entry.width,entry.height)||!dimensions(width1,height1)||!dimensions(width1*scale2,height1*scale2)){failed("dimensions",-1);continue;}
         try{
@@ -85,10 +87,11 @@ inline int worker(const fs::path& manifest,const fs::path& directory,const fs::p
             ncnn::Mat image(w,h,pixels.get(),(size_t)c,c),middle;
             if(entry.resume==1){
                 if(!jm::begin_inference(id)){trace("RELEASE",id);break;}trace("STAGE1",id);
-                auto net=models.get(0);middle.create((int)width1,(int)height1,(size_t)c,c);
+                auto net=models.get(0);if(!net){jm::end_inference(id);jm::fatal("model",-1);failed("model",-1);break;}middle.create((int)width1,(int)height1,(size_t)c,c);
                 int code=!net||middle.empty()?-1:net->process(image,middle);jm::end_inference(id);
-                if(code){failed("stageone",code);continue;}
+                if(code){if(++inference_failures[0]>=3)jm::fatal("inference-global",code);failed("stageone",code);if(jm::job_failed)break;continue;}inference_failures[0]=0;
                 const auto pending=fs::path(entry.checkpoint.native()+PATHSTR(".pending.png"));
+                errno=0;
                 bool ok=jm::png_stream(pending,middle.w,middle.h,c,(const unsigned char*)middle.data,(size_t)middle.w*c,
 #if _WIN32
                     true,
@@ -96,16 +99,16 @@ inline int worker(const fs::path& manifest,const fs::path& directory,const fs::p
                     false,
 #endif
                     6);
-                if(!ok){failed("checkpoint",-1);continue;}
+                if(!ok){const int error=errno;if(error==ENOSPC)jm::fatal("disk",error);else if(error==EACCES||error==EROFS)jm::fatal("destination",error);else if(++checkpoint_failures>=3)jm::fatal("encode-global",error?error:-1);failed("checkpoint",error?-error:-1);if(jm::job_failed)break;continue;}checkpoint_failures=0;
                 trace("CHECKPOINT",id);
-                if(!acknowledge(id,"stage1")){trace("RELEASE",id);break;}
+                if(!acknowledge(id,"stage1")){trace("RELEASE",id);if(!jm::job_failed&&fs::exists(jm::control/(std::to_string(id)+".reject")))continue;break;}
                 image=middle;pixels.reset();
             }
             if(!jm::begin_inference(id)){trace("RELEASE",id);break;}trace("STAGE2",id);
             Task output;output.id=id;output.managed_input=true;output.original_w=entry.width;output.original_h=entry.height;output.inpath=entry.source.native();output.outpath=entry.output.native();output.inimage=image;
             output.outimage.create((int)width1*scale2,(int)height1*scale2,(size_t)c,c);
-            auto net=models.get(1);int code=!net||output.outimage.empty()?-1:net->process(image,output.outimage);jm::end_inference(id);
-            if(code){failed("stagetwo",code);continue;}
+            auto net=models.get(1);if(!net){jm::end_inference(id);jm::fatal("model",-1);failed("model",-1);break;}int code=!net||output.outimage.empty()?-1:net->process(image,output.outimage);jm::end_inference(id);
+            if(code){if(++inference_failures[1]>=3)jm::fatal("inference-global",code);failed("stagetwo",code);if(jm::job_failed)break;continue;}inference_failures[1]=0;
             trace("VERIFY",id);
             // Reuse exactly the final resize/encoder path used by Single/batch.
             tosave.put(output);Task end;end.id=-233;tosave.put(end);save(&stp);

@@ -87,6 +87,15 @@ export function registerJobs(){
  ipcMain.handle(C.JOB_DISCOVER,(_event,payload)=>offerRecovery(typeof payload==='string'?payload:payload?.source,payload?.settings));
  ipcMain.handle(C.JOB_PROMPT_GET,()=>{if(!startupChecked){startupChecked=true;offerRecovery();}return batchPrompts.current;});
  ipcMain.handle(C.JOB_PROMPT_ACTION,(_event,payload:{token:string;choice:PromptChoice})=>batchPrompts.act(payload?.token,payload?.choice));
+ const openJobPath=async(kind:'report'|'output',id:string)=>{
+  try{const session=batchManager().session;if(!session||session.id!==id)throw Error('This job is no longer selected.');
+   const file=kind==='report'?session.report:session.output;if(!file)throw Error('The report is not available.');
+   if(kind==='report'&&(path.dirname(file)!==session.output||!/^upscayl_batch_report(?:_\d+)?\.txt$/.test(path.basename(file))||!fs.lstatSync(file).isFile()))throw Error('Invalid report path.');
+   const error=await shell.openPath(file);return {ok:!error,error};
+  }catch(error){return {ok:false,error:String(error)};}
+ };
+ ipcMain.handle(C.JOB_OPEN_REPORT,(_event,payload)=>openJobPath('report',payload?.id));
+ ipcMain.handle(C.JOB_OPEN_OUTPUT,(_event,payload)=>openJobPath('output',payload?.id));
  ipcMain.handle(C.JOB_OPEN_LOGS,async()=>{fs.mkdirSync(logsPath(),{recursive:true});const error=await shell.openPath(logsPath());return {ok:!error,error,path:logsPath()};});
  let quitting=false;
  const closeSafely=()=>{void batchManager().shutdown().then(()=>{quitting=true;app.quit();}).catch(problem);};

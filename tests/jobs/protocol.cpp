@@ -54,5 +54,6 @@ int main() {
  {std::lock_guard<std::mutex> lock(mutex);release=true;}ready.notify_all();
  for(auto& worker:workers)worker.join();
  assert(started==2&&deferred==48&&jm::active.empty());
+ std::filesystem::remove(dir/"pause");jm::halted=false;assert(jm::admit());jm::fatal("model",-1);assert(jm::job_failed&&jm::failed&&!jm::admit());
  std::filesystem::remove_all(dir);std::cout<<"Protocol admission, lease and drain checks passed\n";
 }

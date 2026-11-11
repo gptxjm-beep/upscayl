@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <limits>
 #include <climits>
+#include <cerrno>
 #include "session.h"
 #include "png_stream.h"
 
@@ -462,7 +463,9 @@ void *proc(void *args)
         }
         int result = realesrgan->process(v.inimage, v.outimage);
         jm::end_inference(v.id);
-        if(result != 0) { jm::event(v.id, false, "inference", result); }
+        static std::atomic<int> consecutive_inference_failures{0};
+        if(result != 0) {if(++consecutive_inference_failures>=3)jm::fatal("inference-global",result);jm::event(v.id, false, "inference", result);}
+        else consecutive_inference_failures=0;
 
         if(result == 0) tosave.put(v);
         else { free(v.inimage.data); }
@@ -562,6 +565,10 @@ void *save(void *args)
         jm_wic_image_id=v.id;jm_wic_last_error=S_OK;
 #endif
         int success = 0;
+        errno=0;
+#if _WIN32
+        SetLastError(ERROR_SUCCESS);
+#endif
 
         path_t ext = get_file_extension(v.outpath);
 
@@ -623,7 +630,23 @@ void *save(void *args)
             success = stbi_write_jpg(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data, 100 - (int)stp->compression);
 #endif
         }
+        static std::atomic<int> consecutive_encode_failures{0};
+        const int io_error=errno;
+        if(success)consecutive_encode_failures=0;
+        else {
+            bool disk_full=io_error==ENOSPC;
+#if _WIN32
+            disk_full=disk_full||jm_wic_last_error==HRESULT_FROM_WIN32(ERROR_DISK_FULL)||jm_wic_last_error==HRESULT_FROM_WIN32(ERROR_HANDLE_DISK_FULL)||jm_wic_last_error==STG_E_MEDIUMFULL||GetLastError()==ERROR_DISK_FULL;
+            const bool bad_size=jm_wic_last_error==WINCODEC_ERR_IMAGESIZEOUTOFRANGE;
+#else
+            const bool bad_size=false;
+#endif
+            if(disk_full)jm::fatal("disk",io_error?io_error:112);
+            else if(io_error==EACCES||io_error==EROFS)jm::fatal("destination",io_error);
+            else if(!bad_size&&++consecutive_encode_failures>=3)jm::fatal("encode-global",io_error?io_error:-1);
+        }
         if(!success) {
+            if(io_error)fprintf(stderr,"[encode] image=%d errno=%d\n",v.id,io_error);
             const std::string name=fs::path(v.inpath).filename().u8string();
 #if _WIN32
             fprintf(stderr,"[encode] image=%d name=%s input=%dx%d inferred=%dx%d final=%dx%d codec=%s HRESULT=0x%08lx\n",v.id,name.c_str(),v.inimage.w,v.inimage.h,inferred_width,inferred_height,v.outimage.w,v.outimage.h,fs::path(v.outpath).extension().u8string().c_str(),(unsigned long)jm_wic_last_error);
@@ -632,9 +655,9 @@ void *save(void *args)
 #endif
         }
 #if _WIN32
-        jm::event(v.id,success!=0,"encode",success?0:FAILED(jm_wic_last_error)?(int)jm_wic_last_error:-1);
+        jm::event(v.id,success!=0,"encode",success?0:FAILED(jm_wic_last_error)?(int)jm_wic_last_error:io_error?-io_error:-1);
 #else
-        jm::event(v.id, success != 0, "encode", success ? 0 : -1);
+        jm::event(v.id, success != 0, "encode", success ? 0 : io_error?-io_error:-1);
 #endif
         if (success)
         {
@@ -1037,8 +1060,8 @@ int main(int argc, char **argv)
     }
 
     jm::Monitor monitor;
-    const int prepadding=10; // All supported networks are declared ESRGAN/RRDB.
     if(input_multiple!=1&&input_multiple!=2&&input_multiple!=4){fprintf(stderr,"Invalid model input alignment\n");return -1;}
+    const int prepadding=10; // All supported networks are declared ESRGAN/RRDB.
 
     // if (modelname.find(PATHSTR("realesrgan-x4plus")) != path_t::npos
     //     || modelname.find(PATHSTR("realesrnet-x4plus")) != path_t::npos

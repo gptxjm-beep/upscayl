@@ -61,7 +61,8 @@ test('restart recovery rejects model/source change and repairs corrupt output wi
 
 test('failed image retains journal; confirmed Cancel retains successful files and deletes recovery data',async t=>{
  const f=await fixture(t,12,true);const m=f.make();const stop=settled(m);await m.create(f.settings,f.models,fake);await stop;
- assert.equal(m.session.phase,'failed');assert(fs.existsSync(m.session.file));assert(m.session.items.some(i=>i.state==='failed'));
+ assert.equal(m.session.phase,'completed-with-errors');assert(fs.existsSync(m.session.file));assert(m.session.items.some(i=>i.state==='failed'));
+ assert(fs.existsSync(m.session.report));assert.equal(m.snapshot().completed,11);
  assert.match(m.snapshot().lastError,/failed during decode \(code -1\)/);
  const logs=fs.readFileSync(path.join(f.root,'logs','batch-'+m.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);
  assert(logs.some(e=>e.kind==='stderr'&&e.data.includes('HRESULT=0x80004005')));
@@ -69,7 +70,7 @@ test('failed image retains journal; confirmed Cancel retains successful files an
  assert(logs.some(e=>e.kind==='exit'&&e.data.code===2));
  const scale=m.session.settings.scale;m.session.settings.scale='3';
  await assert.rejects(()=>m.resume(),/settings changed/);m.session.settings.scale=scale;
- const failed=m.session.items.find(i=>i.state==='failed');fs.writeFileSync(failed.source,'changed');
+ const adopted=m.session.items.find(i=>i.state==='completed');fs.writeFileSync(adopted.source,'changed'); // completed-source identity stays strict even during failed-image retries
  await assert.rejects(()=>m.resume(),/Source changed/);
  await m.cancel();assert.equal(m.session.phase,'cancelled');assert(!fs.existsSync(m.session.file));assert.deepEqual(m.discover(),[]);
 });

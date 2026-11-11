@@ -1,3 +1,4 @@
+import BatchCompletion from "@/components/main-content/batch-completion";
 import BatchPromptDialogs from '@/components/main-content/batch-prompts';
 import { batchSettingsAtom } from '@/atoms/batch-settings-atom';
 import useBatchJob from "@/components/hooks/use-batch-job";
@@ -368,6 +369,7 @@ const Home = () => {
       />
       <OnboardingDialog />
       <BatchPromptDialogs />
+      <BatchCompletion />
     </div>
   );
 };

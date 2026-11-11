@@ -1,3 +1,4 @@
+import { writeErrorReport, isJobFailure } from "./report";
 import { twoStageDimensions, checkpointFile, validateCheckpointImage, syncFile, ImageStage, Checkpoint } from "./two-stage";
 import { modelMetadata } from "../../common/model-metadata";
 import getModelScale from "../../common/check-model-scale";
@@ -16,12 +17,12 @@ import type { BatchFailure } from '../../common/types/batch-ui';
 import { getBatchArguments } from '../utils/get-arguments';
 import { BatchUpscaylPayload } from '../../common/types/types';
 
-export type Phase = 'preparing' | 'resuming' | 'recovering' | 'running' | 'pausing' | 'paused' | 'completed' | 'failed' | 'cancelled';
+export type Phase = 'preparing' | 'resuming' | 'recovering' | 'running' | 'pausing' | 'paused' | 'completed' | 'completed-with-errors' | 'failed' | 'cancelled';
 type Item = { stage?:ImageStage; checkpoint?:Checkpoint; source: string; sourceHash: string; size: [number, number]; name: string;
   state: 'pending' | 'processing' | 'saving' | 'completed' | 'failed' | 'committing'; outputHash?: string; error?: string; failure?:BatchFailure };
 export type Session = { version: 1|2; secondModelDir?:string; secondModelHash?:string; id: string; source: string; output: string; file: string;
   modelDir: string; modelHash: string; engine: string; engineHash: string; settings: BatchUpscaylPayload;
-  settingsHash: string; phase: Phase; updated: string; items: Item[]; attempt?: string; pid?: number; error?: string;cancelConfirmed?:boolean;shutdown?:'open'|'clean';failure?:BatchFailure };
+  report?:string; reportHash?:string; repairFailedSources?:boolean; settingsHash: string; phase: Phase; updated: string; items: Item[]; attempt?: string; pid?: number; error?: string;cancelConfirmed?:boolean;shutdown?:'open'|'clean';failure?:BatchFailure };
 // Avoid cached input handles preventing atomic adoption on Windows.
 sharp.cache({ files: 0 });
 const extensions = /\.(png|jpe?g|jfif|webp)$/i;
@@ -35,6 +36,8 @@ export class BatchManager extends EventEmitter {
   private cancelling = false;
   private settling = false;
   private processingStarted=false;
+  private jobFailed=false;
+  private validationFailures={checkpoint:0,output:0};
   private gateClosed = false;
   private pauseRequestedAt?: [number,number];
   private completedAtPause = 0;
@@ -59,7 +62,7 @@ export class BatchManager extends EventEmitter {
     return s ? { id: s.id, phase: s.phase, completed: s.items.filter(i => i.state === 'completed').length,
       kind:s.settings.singleImage?'single':'batch', total: s.items.length, failed: s.items.filter(i => i.state === 'failed').length,
       lastError: s.error || s.items.find(i => i.error)?.error, source: s.source, output: s.output, settings: s.settings,
-      failure:s.failure || s.items.find(i=>i.failure)?.failure,
+      failure:s.failure || s.items.find(i=>i.failure)?.failure, report:s.report,
       engineStopped: !this.child && !this.settling, gateClosed: this.gateClosed } : null;
   }
   discover(source?: string,singleImage?:string) {
@@ -98,10 +101,16 @@ export class BatchManager extends EventEmitter {
         if(this.cancelRequested) throw new Error('Batch preparation cancelled');
         const input = path.join(source,name);
         const info = await sharp(input, { failOn: 'warning', limitInputPixels: false }).metadata().catch(() => ({width:0,height:0}));
-        items.push({ source: input, sourceHash: await hash(input), size: [info.width || 0,info.height || 0],
-          name: `${path.parse(name).name}.${settings.saveImageAs}`, state: 'pending' });
+        let sourceHash='';let failure:BatchFailure|undefined;
+        try{sourceHash=await hash(input);}catch(error){failure=describeFailure(String(error),input,'source',(error as NodeJS.ErrnoException).code);}
+        if(!failure&&(!info.width||!info.height))failure=describeFailure('Input image could not be decoded during preparation.',input,'decode','INVALID_IMAGE');
+        items.push({ source:input,sourceHash,size:[info.width||0,info.height||0],name:`${path.parse(name).name}.${settings.saveImageAs}`,state:failure?'failed':'pending',...(failure?{failure,error:failure.reason}:{}) });
       }
-      if(settings.useTwoModels)for(const item of items){twoStageDimensions(item.size,settings);item.stage="stage1-pending";}
+      if(settings.useTwoModels)for(const item of items){
+        if(item.state==='failed'){item.stage='failed';continue;}
+        try{twoStageDimensions(item.size,settings);item.stage='stage1-pending';}
+        catch(error){item.state='failed';item.stage='failed';item.failure=describeFailure(String(error),item.source,'dimensions');item.error=item.failure.reason;}
+      }
       const secondModelHash=settings.useTwoModels?await this.modelHash(secondModelDir||modelDir,settings.secondModel!):undefined;
       const used=new Set<string>();
       for(const item of items) {
@@ -154,9 +163,11 @@ export class BatchManager extends EventEmitter {
     // whose manifest and gate protocol were checked before this update.
     let recordedEngineHash='';try{recordedEngineHash=await hash(s.engine);}catch{}
     const compatibleOld=['295f5bfaf0d4ecadd97e9f27b0270393d31e1d0d94dab09cdc47eb142021ce1c','907432b61838e6fc9af832fe023b07e937b1c5ecd0c331b5a900665611703e7a'];
-    if(replacementEngine&&(recordedEngineHash!==s.engineHash||s.version===1&&compatibleOld.includes(s.engineHash))){
+    const compatibleV2=['6d031af68d59bd871de84d4139f617728f669d554a534a80634761d3c4762f0b']; // verified Windows 857c070 worker, same v2 manifest/checkpoint protocol
+    const knownUpgrade=s.version===1?compatibleOld.includes(s.engineHash):compatibleV2.includes(s.engineHash);
+    if(replacementEngine&&(recordedEngineHash!==s.engineHash||knownUpgrade)){
       const replacementHash=await hash(replacementEngine);
-      if(replacementHash!==s.engineHash&&!(s.version===1&&compatibleOld.includes(s.engineHash)))throw new Error('The recorded engine changed and has no verified compatible upgrade.');
+      if(replacementHash!==s.engineHash&&!knownUpgrade)throw new Error('The recorded engine changed and has no verified compatible upgrade.');
       this.requireInferenceGate(replacementEngine);s.engine=replacementEngine;s.engineHash=replacementHash;
     }
     if(replacementModels){
@@ -169,20 +180,41 @@ export class BatchManager extends EventEmitter {
     }
     this.requireInferenceGate(s.engine);
     this.session = s;
+    const repairFailed=s.phase==='completed-with-errors';
     s.phase = 'paused';
-    await this.resume('recovering');
+    await this.resume('recovering',repairFailed);
   }
-  async resume(operation:'preparing'|'resuming'|'recovering'='resuming') {
+  async resume(operation:'preparing'|'resuming'|'recovering'='resuming',repairFailedSources=false) {
     if(this.child || this.busy || this.cancelling || this.settling || !this.session || this.closing || this.session.cancelConfirmed || ['completed','cancelled'].includes(this.session.phase)) return;
     this.busy = true; this.cancelRequested = false;
     const s = this.session;
     try {
+      const repairFailed=repairFailedSources||s.phase==='completed-with-errors'||s.repairFailedSources===true;
+      if(repairFailed)s.repairFailedSources=true;
+      this.jobFailed=false;this.validationFailures={checkpoint:0,output:0};const unavailable=new Set<Item>();
       s.phase=operation;s.shutdown='open';this.log(operation+'-requested',{completed:this.snapshot()!.completed,total:s.items.length});this.save();
       if(crypto.createHash('sha256').update(JSON.stringify(s.settings)).digest('hex') !== s.settingsHash) throw new Error('Saved settings changed; session cannot be resumed.');
       if(await hash(s.engine) !== s.engineHash || await this.modelHash(s.modelDir,s.settings.model) !== s.modelHash) throw new Error('Engine/model changed. Restore the recorded files before resuming.');
       if(s.version===2&&(!s.settings.useTwoModels||!s.settings.secondModel||!s.secondModelDir||await this.modelHash(s.secondModelDir,s.settings.secondModel)!==s.secondModelHash))throw Error('Second model changed; restore its recorded files before resuming.');
       for(const i of s.items) {
-        if(await hash(i.source) !== i.sourceHash) throw new Error('Source changed: ' + i.source);
+        let currentHash='';
+        try{currentHash=await hash(i.source);}catch(error){
+          if(['completed','committing'].includes(i.state))throw error;
+          i.state='failed';if(s.version===2)i.stage='failed';i.failure=describeFailure(String(error),i.source,'source',(error as NodeJS.ErrnoException).code);i.error=i.failure.reason;unavailable.add(i);continue;
+        }
+        if(i.sourceHash&&currentHash!==i.sourceHash){
+          if(!repairFailed||i.state!=='failed')throw new Error('Source changed: '+i.source);
+          // Explicitly retrying a finished-with-errors job may repair only a
+          // failed source. Completed/active inputs keep strict identity checks.
+          i.sourceHash='';i.checkpoint=undefined;if(s.version===2)i.stage='stage1-pending';
+          this.log('failed-source-repaired',{source:i.source});
+        }
+        if(!i.sourceHash){
+          i.sourceHash=currentHash;const info=await sharp(i.source,{failOn:'warning',limitInputPixels:false}).metadata().catch(()=>({width:0,height:0}));i.size=[info.width||0,info.height||0];
+        }
+        if(!i.size[0]||!i.size[1]){
+          i.state='failed';if(s.version===2)i.stage='failed';i.failure=describeFailure('Input image could not be decoded during preparation.',i.source,'decode','INVALID_IMAGE');i.error=i.failure.reason;unavailable.add(i);continue;
+        }
         if(i.state === 'completed' || i.state === 'committing') {
           try {
             const out = path.join(s.output,i.name);
@@ -193,8 +225,9 @@ export class BatchManager extends EventEmitter {
         }
       }
       if(s.version===2)for(const [index,item] of s.items.entries()){
-        if(item.state==='completed')continue;
-        const expected=twoStageDimensions(item.size,s.settings).middle;
+        if(item.state==='completed'||unavailable.has(item))continue;
+        let expected:[number,number];
+        try{expected=twoStageDimensions(item.size,s.settings).middle;}catch(error){item.state='failed';item.stage='failed';item.failure=describeFailure(String(error),item.source,'dimensions');item.error=item.failure.reason;unavailable.add(item);continue;}
         const file=checkpointFile(s.file,index),record=item.checkpoint;
         try{
           if(!record||record.file!==file||record.owner!==s.id||record.sourceHash!==item.sourceHash||record.settingsHash!==s.settingsHash||record.modelsHash!==s.modelHash+':'+s.secondModelHash||JSON.stringify(record.size)!==JSON.stringify(expected))throw Error('Unbound checkpoint');
@@ -218,11 +251,11 @@ export class BatchManager extends EventEmitter {
       if(this.closing) {s.phase='paused';this.save();return;}
       // Delete only work directories owned by this session, never final images.
       if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt, {recursive:true,force:true});
-      const pending = s.items.filter(i => i.state !== 'completed');
+      const pending = s.items.filter(i => i.state !== 'completed'&&!unavailable.has(i));
       this.processingStarted=false;
       this.gateClosed=false;this.pauseRequestedAt=undefined;
       s.error=undefined;s.failure=undefined;
-      if(!pending.length) { s.phase='completed'; this.save(); this.cleanup(); return; }
+      if(!pending.length) {this.finishImages();return;}
       const attempt = path.dirname(s.file) === path.join(s.output,'.upscayl-session') ? path.join(path.dirname(s.file),'work') : path.join(s.output,'.upscayl-work');
       fs.mkdirSync(attempt,{recursive:true});
       this.control = attempt; s.attempt = attempt;
@@ -234,7 +267,7 @@ export class BatchManager extends EventEmitter {
         const v2=pending.map(item=>[item.source,path.join(attempt,item.name),checkpointFile(s.file,s.items.indexOf(item))].map(file=>Buffer.from(file).toString('hex')).concat(item.size.map(String),item.stage==='stage1-complete'?'2':'1').join('\t')).join('\n')+'\n';
         fs.writeFileSync(path.join(attempt,'manifest.v2'),v2);
       }
-      s.phase = 'running';
+      s.phase = 'running';s.repairFailedSources=undefined;
       for(const item of pending) {item.state='pending';item.error=undefined;item.failure=undefined;}
       this.save();
       const options = s.settings;
@@ -252,7 +285,7 @@ export class BatchManager extends EventEmitter {
         // it equals stage one's scale but differs from the composite scale.
         if(!options.useCustomWidth&&!command.includes('-s'))command.push('-s',options.scale);
       }
-      this.log('start',{engine:s.engine,source:s.source,output:s.output,count:pending.length,model:s.settings.model,scale:s.settings.scale,format:s.settings.saveImageAs,modelHash:s.modelHash});
+      this.log('start',{engine:s.engine,source:s.source,output:s.output,count:pending.length,model:s.settings.model,scale:s.settings.scale,format:s.settings.saveImageAs,modelHash:s.modelHash,...(s.version===2?{secondModel:s.settings.secondModel,secondModelHash:s.secondModelHash}:{})});
       const child = this.launch(s.engine,command);
       this.child = child; s.pid = child.pid; this.save();
       this.log('spawn',{pid:child.pid});
@@ -265,6 +298,8 @@ export class BatchManager extends EventEmitter {
         let end;
         while((end = buffered.indexOf('\n')) >= 0) {
           const line = buffered.slice(0,end).trim(); buffered=buffered.slice(end+1);
+          const fatal=/^@JM5 FATAL ([a-z-]+) (-?\d+)$/.exec(line);
+          if(fatal){this.stopForJobFailure(describeFailure('Engine reported a job-wide failure. '+stderrTail,undefined,fatal[1],fatal[2]));continue;}
           const stage=/^@JM5 (ADMIT|STAGE1|CHECKPOINT|STAGE2|VERIFY|RELEASE) (\d+)$/.exec(line);
           if(stage&&s.version===2){
             const id=Number(stage[2]),item=pending[id];if(!item)continue;
@@ -275,13 +310,13 @@ export class BatchManager extends EventEmitter {
             if(stage[1]==='CHECKPOINT')this.finishing=this.finishing.then(async()=>{
               const file=checkpointFile(s.file,s.items.indexOf(item)),temporary=file+'.pending.png';
               try{
-                if(await hash(item.source)!==item.sourceHash)throw Error('Source changed during stage one.');
+                await this.checkSource(item);
                 const size=twoStageDimensions(item.size,s.settings).middle;
                 const digest=await validateCheckpointImage(temporary,size);syncFile(temporary);fs.renameSync(temporary,file);
                 item.checkpoint={file,hash:digest,owner:s.id,sourceHash:item.sourceHash,settingsHash:s.settingsHash,modelsHash:s.modelHash+':'+s.secondModelHash,size};
-                item.stage='stage1-complete';this.save();fs.writeFileSync(path.join(attempt,id+'.stage1.ack'),'1');
-              }catch(error){item.stage='failed';item.state='failed';item.error=String(error);this.save();fs.writeFileSync(path.join(attempt,id+'.reject'),'1');}
-            }).catch(error=>{this.emit('problem',String(error));this.pause();});
+                item.stage='stage1-complete';this.validationFailures.checkpoint=0;this.save();fs.writeFileSync(path.join(attempt,id+'.stage1.ack'),'1');
+              }catch(error){item.stage='failed';item.state='failed';item.error=String(error);if(!item.failure)item.failure=describeFailure(String(error),item.source,'checkpoint',(error as NodeJS.ErrnoException).code);if(isJobFailure(error,item.failure.stage,(error as NodeJS.ErrnoException).code))this.stopForJobFailure(item.failure);else if(item.failure.stage==='checkpoint'&&++this.validationFailures.checkpoint>=3)this.stopForJobFailure(describeFailure('Repeated intermediate-image validation failures stopped the job.',undefined,'validation-global'));this.save();fs.writeFileSync(path.join(attempt,id+'.reject'),'1');}
+            }).catch(error=>{this.stopForJobFailure(describeFailure(String(error),undefined,'journal',(error as NodeJS.ErrnoException).code));this.emit('problem',String(error));});
             continue;
           }
           const trace=/^@JM3 (LOAD|START|END|DEFER) (\d+) (\d+)$/.exec(line);
@@ -312,12 +347,13 @@ export class BatchManager extends EventEmitter {
                 const stage=match[4]||'processing',code=match[5]||'unknown';
                 item.failure=describeFailure(`Image ${path.basename(item.source)} failed during ${stage} (code ${code}). ${stderrTail}`,item.source,stage,code);
                 this.log('image',{id:index,source:item.source,stage,code,stderr:stderrTail,inputDimensions:item.size,expectedOutputDimensions:this.outputDimensions(item),settings:{scale:s.settings.scale,format:s.settings.saveImageAs,customWidth:s.settings.useCustomWidth?s.settings.customWidth:undefined}});
+                if(isJobFailure(item.failure.details,stage,code))this.stopForJobFailure(item.failure);
                 throw new Error(`Image ${path.basename(item.source)} failed during ${stage} (code ${code}). ${item.failure.reason}`);
               }
               await this.commit(item,path.join(attempt,item.name));
-            } catch(e) { if(s.version===2)item.stage='failed'; item.state='failed'; item.error=String(e);if(!item.failure){item.failure=describeFailure(String(e),item.source,'validation');this.log('image-validation-error',item.failure);} this.save(); }
+            } catch(e) { if(s.version===2)item.stage='failed'; item.state='failed'; item.error=String(e);if(!item.failure){item.failure=describeFailure(String(e),item.source,'validation');this.log('image-validation-error',item.failure);} if(isJobFailure(e,item.failure.stage,(e as NodeJS.ErrnoException).code))this.stopForJobFailure(item.failure);else if(item.failure.stage==='validation'&&++this.validationFailures.output>=3)this.stopForJobFailure(describeFailure('Repeated output-image validation failures stopped the job.',undefined,'validation-global'));this.save(); }
             if(s.version===2)fs.writeFileSync(path.join(attempt,index+'.final.ack'),'1');
-          }).catch(e => { this.emit('problem',String(e)); this.pause(); });
+          }).catch(e => {this.stopForJobFailure(describeFailure(String(e),undefined,'journal',(e as NodeJS.ErrnoException).code));this.emit('problem',String(e));});
         }
       });
       const captureErrorLine=(line:string)=>{if(significantEngineLine(line)){stderrTail=(stderrTail+line+'\n').slice(-6000);this.log('stderr',line);this.emit('log',line);}};
@@ -339,20 +375,42 @@ export class BatchManager extends EventEmitter {
           if(s.phase === 'cancelled') { this.removeSession(s); return; }
           // A per-file success event is emitted only after the encoder completes.
           if(spawnError || signal || code !== 0 && code !== 2) throw new Error(spawnError || `Engine ended: ${code} ${signal || ''}`);
-          if(s.items.every(i => i.state === 'completed')) { s.phase='completed'; this.save(); this.cleanup(); }
+          const terminal=s.items.every(item=>item.state==='completed'||item.state==='failed');
+          const pausedWithErrors=!this.jobFailed&&s.phase==='pausing'&&s.items.some(item=>item.state==='failed')&&(this.gateClosed||terminal);
+          if(pausedWithErrors){s.phase='paused';this.settling=false;this.save();}
+          else if(!this.jobFailed&&terminal)this.finishImages();
           else {
-            const errors=s.items.some(i=>i.state==='failed');
-            s.phase = errors ? 'failed' : s.phase === 'pausing' && this.gateClosed ? 'paused' : 'failed';
+            s.phase=this.jobFailed?'failed':s.phase==='pausing'&&this.gateClosed?'paused':'failed';
             for(const item of s.items)if(item.state==='processing')item.state='pending';
-            if(s.phase==='failed'&&!errors)s.error='Engine exited with unfinished images before a confirmed inference gate closure.';
-            this.settling=false;this.save();
+            if(s.phase==='failed'&&!this.jobFailed)s.error='Engine exited with unfinished images before a confirmed inference gate closure.';
+            this.settling=false;
+            if(s.phase==='failed'&&s.items.some(item=>item.state==='failed'))writeErrorReport(s);
+            this.save();
           }
           this.log('drained',{phase:s.phase,completedAfterPause:this.pauseRequestedAt===undefined?null:this.snapshot()!.completed-this.completedAtPause,engineStopped:true});
-        } catch(e) { s.phase=s.cancelConfirmed?'cancelled':'failed'; s.error=String(e);s.failure=describeFailure(String(e)+'\n'+stderrTail);this.log('engine-error',s.failure);try { this.save(); } catch(persist) { this.emit('problem',String(persist)); } this.emit('problem',String(e)); }
+        } catch(e) { s.phase=s.cancelConfirmed?'cancelled':'failed'; s.error=String(e);s.failure=describeFailure(String(e)+'\n'+stderrTail);this.log('engine-error',s.failure);try { this.save(); } catch(persist) {this.settling=false;this.emit('state',this.snapshot());this.emit('problem',String(persist));} this.emit('problem',String(e)); }
         finally { this.child=undefined;this.settling=false; this.emit('settled'); }
       });
     } catch(e) { s.phase=this.cancelRequested?'cancelled':'failed';s.error=String(e);s.failure=describeFailure(String(e));this.log('preflight-error',s.failure);this.save();throw e; }
     finally { this.busy=false; }
+  }
+  private stopForJobFailure(failure:BatchFailure){
+    this.jobFailed=true;
+    if(this.session){this.session.failure=failure;this.session.error=failure.reason;}
+    this.log('job-failure',failure);
+    // Close admission without presenting a manual-Pause state. If the disk
+    // cannot even accept the stop marker, terminate only this owned child.
+    if(this.control)try{fs.writeFileSync(path.join(this.control,'pause'),'1');}catch{this.child?.kill('SIGKILL');}
+    if(failure.stage==='journal')this.child?.kill('SIGKILL');
+  }
+  private finishImages(){
+    const s=this.session!;
+    const failed=s.items.some(item=>item.state==='failed');
+    s.phase=failed?'completed-with-errors':'completed';s.repairFailedSources=undefined;
+    if(failed||s.report)writeErrorReport(s);
+    this.settling=false;this.save();
+    if(!failed)this.cleanup();
+    this.log('images-finished',{completed:this.snapshot()!.completed,failed:this.snapshot()!.failed,report:s.report});
   }
   private outputDimensions(item:Item):[number,number] {
     const o=this.session!.settings;
@@ -372,10 +430,15 @@ export class BatchManager extends EventEmitter {
     // Force full decode without keeping a whole raw image in JavaScript memory.
     await image.stats();
   }
+  private async checkSource(item:Item){
+    try{
+      if(await hash(item.source)!==item.sourceHash){const error=Object.assign(Error('Source changed during processing; this result was not adopted.'),{code:'SOURCE_CHANGED'});throw error;}
+    }catch(error){item.failure=describeFailure(String(error),item.source,'source',(error as NodeJS.ErrnoException).code);throw error;}
+  }
   private async commit(item: Item, temporary: string) {
     const s=this.session!;
     item.state='saving';
-    if(await hash(item.source) !== item.sourceHash) throw new Error('Source changed during processing');
+    await this.checkSource(item);
     await this.validate(item,temporary);
     if(s.settings.copyMetadata) await this.metadata(item.source,temporary);
     await this.validate(item,temporary);
@@ -386,7 +449,7 @@ export class BatchManager extends EventEmitter {
     fs.linkSync(temporary,final);
     fs.unlinkSync(temporary);
     try { const dir=fs.openSync(s.output,'r'); try { fs.fsyncSync(dir); } finally { fs.closeSync(dir); } } catch {}
-    item.state='completed';if(s.version===2)item.stage='completed'; item.error=undefined; this.save();
+    this.validationFailures.output=0;item.state='completed';if(s.version===2)item.stage='completed'; item.error=undefined; this.save();
     if(s.version===2&&item.checkpoint){fs.rmSync(item.checkpoint.file,{force:true});}
   }
   pause() {
@@ -424,12 +487,12 @@ export class BatchManager extends EventEmitter {
     });
   }
   async whenStarted(timeoutMs=120000):Promise<void> {
-    if(this.processingStarted||this.session?.phase==='completed')return;
+    if(this.processingStarted||['completed','completed-with-errors'].includes(this.session?.phase||''))return;
     if(!this.child)throw new Error(this.snapshot()?.lastError||'Processing did not start. Recovery progress has been kept.');
     return new Promise<void>((resolve,reject)=>{
       const clear=()=>{clearTimeout(timer);this.off('processing-started',started);this.off('settled',ended);};
       const started=()=>{clear();resolve();};
-      const ended=()=>{clear();if(this.processingStarted||this.session?.phase==='completed')resolve();else reject(new Error(this.snapshot()?.lastError||'The engine stopped before processing began.'));};
+      const ended=()=>{clear();if(this.processingStarted||['completed','completed-with-errors'].includes(this.session?.phase||''))resolve();else reject(new Error(this.snapshot()?.lastError||'The engine stopped before processing began.'));};
       const timer=setTimeout(()=>{clear();reject(new Error('The engine has not confirmed processing yet. Close this dialog to inspect or stop the task.'));},timeoutMs);
       this.once('processing-started',started);this.once('settled',ended);
     });

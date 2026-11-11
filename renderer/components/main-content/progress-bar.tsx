@@ -1,3 +1,4 @@
+import useTwoStageLabels from "../hooks/use-two-stage-labels";
 import { jobAtom } from "@/atoms/job-atom";
 import React, { useEffect, useRef, useState } from "react";
 import { Loader2 } from 'lucide-react';
@@ -19,6 +20,7 @@ function ProgressBar({
   batchMode: boolean;
   resetImagePaths: () => void;
 }) {
+  const labels=useTwoStageLabels();
   const job = useAtomValue(jobAtom);
   const [batchProgress, setBatchProgress] = React.useState(0);
   const t = useAtomValue(translationAtom);
@@ -98,6 +100,7 @@ function ProgressBar({
           </p>
         </div>
 
+        {!!batchJob?.failed&&<p className="text-xs text-warning" aria-live="polite">{labels.failed}: {batchJob.failed}</p>}
         {failed && <BatchError job={batchJob}/>}
         {actionError&&<p role="alert" className="max-w-sm break-words text-sm text-error">{actionError.slice(0,300)}</p>}
         <div className="flex flex-wrap justify-center gap-2">

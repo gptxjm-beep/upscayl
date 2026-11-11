@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import crypto from 'crypto';
 import type { BatchPrompt, PromptChoice, ActionResult,RecoverySummary } from '../../common/types/batch-ui';
 export function startupRecoverable(session:RecoverySummary){
-  if(['completed','cancelled'].includes(session.phase)||session.shutdown==='clean')return false;
+  if(['completed','completed-with-errors','cancelled'].includes(session.phase)||session.shutdown==='clean')return false;
   return session.shutdown==='open'||['running','pausing','resuming','recovering','preparing','failed'].includes(session.phase);
 }
 

@@ -21,16 +21,22 @@ async function fixture(t,count=4){
  };
  return {folder,source,models,settings,make,launches:()=>launches};
 }
-test('1000 whole-image jobs: ordered stages, progressive adoption, capacity held until final ACK and two model loads',{timeout:500000},async t=>{
- const f=await fixture(t,1000),m=f.make();let active=0,peak=0,admitted=0,released=0,progressive=false;
- m.on('native-trace',e=>{if(e.event==='ADMIT'){assert.equal(active,0);active++;peak=Math.max(active,peak);admitted++;}if(e.event==='RELEASE'){assert.equal(m.snapshot().completed,released+1,'no release before durable final adoption');released++;active--;}});
+for(const two of [false,true])test(`${two?'two-stage':'single-model'} 1000 jobs with corrupt image 50: 999 complete, report and repaired-source recovery`,{timeout:500000},async t=>{
+ const f=await fixture(t,1000),m=f.make();
+ if(!two){delete f.settings.useTwoModels;delete f.settings.secondModel;}
+ const broken=path.join(f.source,'0049.png'),encoded=fs.readFileSync(broken);fs.writeFileSync(broken,encoded.subarray(0,63));
+ const header=await sharp(broken).metadata();assert.equal(header.width,8,'corrupt fixture must reach native decode, not preparation rejection');
+ let active=0,peak=0,admitted=0,released=0,progressive=false;
+ m.on('native-trace',e=>{if(e.event==='ADMIT'){assert.equal(active,0);active++;peak=Math.max(active,peak);admitted++;}if(e.event==='RELEASE'){assert.equal(m.snapshot().completed+m.snapshot().failed,released+1,'no release before durable final adoption or recorded image failure');released++;active--;}});
  m.on('state',s=>{if(s.completed>0&&s.completed<1000)progressive=true;});
  const done=end(m);await m.create(f.settings,f.models,engine);await done;
- assert.equal(m.session.phase,'completed',JSON.stringify(m.snapshot()));assert.equal(admitted,1000);assert.equal(released,1000);assert.equal(peak,1);assert(progressive);assert.equal(f.launches(),1);
- for(const item of [m.session.items[0],m.session.items[999]]){const {data,info}=await sharp(path.join(m.session.output,item.name)).raw().toBuffer({resolveWithObject:true});assert.equal(info.width,8);assert.equal(info.height,8);assert(data.every(v=>v>=75&&v<=77),'half then add yields ~76; reversed order would yield ~63');}
- const events=fs.readFileSync(path.join(f.folder,'logs','batch-'+m.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);assert(events.some(e=>e.kind==='stderr'&&/model-load-total first=1 second=1/.test(e.data)));
- assert(!fs.existsSync(path.join(m.session.output,'.upscayl-session')));
- console.log('1000 actual scalar NCNN jobs passed: capacity=1, model loads=1+1, software Vulkan only.');
+ assert.equal(m.session.phase,'completed-with-errors',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,999);assert.equal(m.snapshot().failed,1);if(two){assert.equal(admitted,1000);assert.equal(released,1000);assert.equal(peak,1);}assert(progressive);assert.equal(f.launches(),1);
+ for(const item of [m.session.items[0],m.session.items[999]]){const {data,info}=await sharp(path.join(m.session.output,item.name)).raw().toBuffer({resolveWithObject:true});assert.equal(info.width,8);assert.equal(info.height,8);assert(data.every(v=>two?v>=75&&v<=77:v>=49&&v<=51),'ordered model stages must match the expected pixels');}
+ const events=fs.readFileSync(path.join(f.folder,'logs','batch-'+m.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);if(two)assert(events.some(e=>e.kind==='stderr'&&/model-load-total first=1 second=1/.test(e.data)));
+ const report=fs.readFileSync(m.session.report,'utf8');assert.match(report,/Successful: 999/);assert.match(report,/Failed: 1/);assert.match(report,/0049\.png/);assert(!fs.existsSync(path.join(f.source,'upscayl_batch_report.txt')));assert(fs.existsSync(m.session.file));
+ m.removeAllListeners('native-trace');const times=[m.session.items[0],m.session.items[999]].map(item=>[item.name,fs.statSync(path.join(m.session.output,item.name)).mtimeMs]);
+ fs.writeFileSync(broken,encoded);let retried=0;m.on('inference-start',()=>retried++);const resumed=end(m);await m.resume();await resumed;assert.equal(m.session.phase,'completed',JSON.stringify(m.snapshot()));assert.equal(retried,two?2:1);for(const [name,time]of times)assert.equal(fs.statSync(path.join(m.session.output,name)).mtimeMs,time);assert.equal(m.snapshot().completed,1000);assert.match(fs.readFileSync(m.session.report,'utf8'),/Failed: 0/);
+ console.log(`${two?'Two-stage, capacity=1, model loads=1+1':'Single-model legacy pipeline, one worker process'}: corrupt image 50 skipped, 999 valid, 1 failed; repaired image then resumed alone. Software Vulkan, not GPU performance.`);
 });
 for(const corrupt of [false,true])test(`pause after durable first stage; recovery ${corrupt?'rebuilds a corrupt checkpoint':'starts from stage two'}`,{timeout:120000},async t=>{
  const f=await fixture(t),m=f.make();let pause=false;m.on('native-trace',e=>{if(e.event==='CHECKPOINT'&&!pause){pause=true;m.pause();}});
@@ -59,6 +65,21 @@ test('unacknowledged controller crash retains a durable checkpoint; lease expiry
  const f=await fixture(t,1);const child=spawn(process.execPath,[path.join(__dirname,'two-stage-crash-child.cjs'),f.folder,f.source,f.models,engine],{windowsHide:true,stdio:'ignore'});const code=await new Promise(resolve=>child.once('exit',resolve));assert.equal(code,91);
  const record=JSON.parse(fs.readFileSync(path.join(f.folder,'crashed-session.json'),'utf8')),{ownsEngine}=require('../../export/electron/jobs/process-owner.js');const deadline=Date.now()+45000;while(ownsEngine(record.pid,record.attempt)){assert(Date.now()<deadline,'orphan did not stop after lease expiry');await new Promise(resolve=>setTimeout(resolve,250));}
  const m=f.make(),stages=[];m.on('native-trace',e=>{if(['STAGE1','STAGE2'].includes(e.event))stages.push(e.event);});const done=end(m);await m.restore(record.id,engine,f.models,f.models);await done;assert.equal(m.session.phase,'completed',JSON.stringify(m.snapshot()));assert.deepEqual(stages,['STAGE2']);
+});
+test('host checkpoint rejection releases the failed image and native worker continues',{timeout:120000},async t=>{
+ const f=await fixture(t,4),m=f.make(),checkpoint=require('../../export/electron/jobs/two-stage.js'),original=checkpoint.validateCheckpointImage;let injected=false;const second=[];
+ checkpoint.validateCheckpointImage=async(file,dimensions)=>{if(!injected&&file.endsWith('.pending.png')){injected=true;throw Error('Fixture corrupt checkpoint');}return original(file,dimensions);};t.after(()=>checkpoint.validateCheckpointImage=original);
+ m.on('native-trace',e=>{if(e.event==='STAGE2')second.push(e.id);});const done=end(m);await m.create(f.settings,f.models,engine);await done;assert.equal(m.session.phase,'completed-with-errors',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,3);assert.equal(m.snapshot().failed,1);assert(!second.includes(0));assert(fs.existsSync(m.session.report));
+});
+for(const stage of [1,2])test(`three repeated native stage ${stage} geometry failures stop the broken job`,{timeout:120000},async t=>{
+ const f=await fixture(t,5),id=stage===1?'test-1x-half':'test-1x-add';fs.writeFileSync(path.join(f.models,id+'.param'),'7767517\n2 2\nInput input 0 1 data\nCrop crop 1 1 data output 0=0 1=0 2=0 3=1 4=1 5=3\n');
+ const m=f.make(),second=[];m.on('native-trace',e=>{if(e.event==='STAGE2')second.push(e.id);});const done=end(m);await m.create(f.settings,f.models,engine);await done;assert.equal(m.session.phase,'failed',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,0);assert.equal(m.snapshot().failed,3);assert.equal(m.session.items.filter(i=>i.state==='pending').length,2);if(stage===1)assert.deepEqual(second,[]);assert.equal(m.snapshot().failure.stage,'inference-global');
+});
+test('native checkpoint ENOSPC is a job fault, closes admission and cannot hang waiting for ACK',{timeout:120000,skip:win?'Linux /dev/full injection; physical Windows disk-full remains a separate acceptance test.':false},async t=>{
+ const f=await fixture(t,4),m=f.make();m.on('native-trace',e=>{if(e.event==='STAGE1'&&e.id===0){const file=path.join(path.dirname(m.session.file),'intermediates','0.png.pending.png');fs.symlinkSync('/dev/full',file);}});const done=end(m);await m.create(f.settings,f.models,engine);await done;assert.equal(m.session.phase,'failed',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,0);assert.equal(m.snapshot().failed,1);assert.equal(m.snapshot().failure.stage,'disk');assert(m.session.items.some(i=>i.state==='pending'));await m.cancel();
+});
+test('single-model repeated inference failures stop the job instead of iterating the whole folder',{timeout:120000},async t=>{
+ const f=await fixture(t,5);delete f.settings.useTwoModels;delete f.settings.secondModel;fs.writeFileSync(path.join(f.models,'test-1x-half.param'),'7767517\n2 2\nInput input 0 1 data\nCrop crop 1 1 data output 0=0 1=0 2=0 3=1 4=1 5=3\n');const m=f.make(),done=end(m);await m.create(f.settings,f.models,engine);await done;assert.equal(m.session.phase,'failed',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,0);assert.equal(m.snapshot().failed,3);assert.equal(m.snapshot().failure.stage,'inference-global');assert(m.session.items.some(item=>item.state==='pending'));
 });
 test('unsafe 4X→4X long page is rejected before inference allocation',()=>{
  const {twoStageDimensions}=require('../../export/electron/jobs/two-stage.js');assert.throws(()=>twoStageDimensions([720,35100],{model:'upscayl-standard-4x',secondModel:'high-fidelity-4x',scale:'2',useCustomWidth:false}),/Unsafe/);

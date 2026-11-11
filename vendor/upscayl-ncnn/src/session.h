@@ -14,6 +14,7 @@ namespace jm {
 inline std::filesystem::path control;
 inline std::mutex events;
 inline std::atomic<bool> failed{false};
+inline std::atomic<bool> job_failed{false};
 inline std::atomic<bool> halted{false};
 inline std::mutex inference_gate;
 inline std::set<int> active;
@@ -32,6 +33,13 @@ inline std::string unhex(const std::string& text) {
     for(size_t i=0;i<text.size();i+=2) { int hi=nibble(text[i]),lo=nibble(text[i+1]); if(hi<0||lo<0) return {}; result += char(hi*16+lo); }
     if(result.find('\0') != std::string::npos) return {};
     return result;
+}
+// Job-wide faults close admission immediately; image-local failures do not.
+inline void fatal(const char* stage,int code){
+    failed=true;halted=true;if(job_failed.exchange(true))return;
+    fprintf(stderr,"[job] fatal stage=%s code=%d\n",stage,code);
+    if(control.empty())return;
+    std::lock_guard<std::mutex> guard(events);printf("@JM5 FATAL %s %d\n",stage,code);fflush(stdout);
 }
 inline void event(int id, bool ok, const char* stage = "encode", int code = 0) {
     if (!ok) failed = true;
