@@ -1,0 +1,7 @@
+# Install torch==2.6.0 CPU from the official PyTorch index first.
+spandrel==0.4.1
+safetensors==0.5.3
+onnx==1.19.1
+numpy==2.2.6
+Pillow==11.2.1
+einops==0.8.1

@@ -1,0 +1,1 @@
+{"source":"https://github.com/the-database/MangaJaNai/releases/download/3.0.0/spandrel-fdat.zip","archiveSha256":"79aef94333a4660b71213d452c7f8218d5c2087778d79ea285e6b636d0037b66","path":"architectures/FDAT/__arch/fdat.py","license":"MIT","usage":"Exact author-provided architecture for original-weight reference comparison; not distributed as application inference runtime."}
