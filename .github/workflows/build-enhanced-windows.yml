@@ -75,6 +75,8 @@ jobs:
         run: python tools/ci-command.py --label streaming-PNG -- vendor/upscayl-ncnn/build/Release/jm-png-test.exe .test-artifacts/long-png
       - name: Decode long PNG with independent libvips
         run: python tools/ci-command.py --label long-PNG-independent -- node tests/jobs/long-png.cjs .test-artifacts/long-png/1440x70200.png
+      - name: Check native image-failure fixtures before long batch tests
+        run: python tools/ci-command.py --label native-decode-fixture --timeout-seconds 180 -- node --test --test-name-pattern="native decode fixture" tests/jobs/two-stage-native.cjs
       - name: Fetch jm.2 reference artifact for regression comparison
         uses: actions/download-artifact@v4
         with:

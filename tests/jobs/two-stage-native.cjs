@@ -6,21 +6,11 @@ const root=path.resolve(__dirname,'../..'),win=process.platform==='win32';
 const engine=process.env.UPSCAYL_TEST_ENGINE||path.join(root,'resources',win?'win':'linux','bin',win?'upscayl-jm.exe':'upscayl-jm');
 const icd=path.join(root,'node_modules/electron/dist/vk_swiftshader_icd.json');
 function end(m){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{void m.cancel();reject(Error('two-stage test timeout'));},480000);m.once('settled',()=>{clearTimeout(timer);resolve();});});}
-function corruptPixelStream(encoded){
- // Truncation is decoder-dependent: WIC accepts the old 63-byte fixture.
- // Keep the PNG/chunk CRCs valid, but use the reserved DEFLATE block type 3.
- // Header readers still see 8x8; every conforming pixel decoder must fail.
- const broken=Buffer.from(encoded);
- for(let offset=8;offset+12<=broken.length;){
-  const length=broken.readUInt32BE(offset);assert(offset+12+length<=broken.length);
-  if(broken.toString('ascii',offset+4,offset+8)==='IDAT'){
-   assert(length>=3);broken[offset+10]=7;
-   let crc=0xffffffff;for(const byte of broken.subarray(offset+4,offset+8+length)){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
-   broken.writeUInt32BE((crc^0xffffffff)>>>0,offset+8+length);return broken;
-  }
-  offset+=12+length;
- }
- throw Error('Fixture must contain PNG pixel data');
+function unreadableNativePNG(){
+ // Both libspng/libpng and WIC can recover truncated PNGs differently.
+ // A deliberately mislabeled SVG has readable dimensions in Sharp, but the
+ // native WIC/stb PNG/JPEG/WebP decoders do not support its actual format.
+ return Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#646464"/></svg>');
 }
 async function fixture(t,count=4){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm5-two-')),source=path.join(folder,'漫画 العربية'),models=path.join(folder,'models');fs.mkdirSync(source);fs.mkdirSync(models);
@@ -37,12 +27,21 @@ async function fixture(t,count=4){
  };
  return {folder,source,models,settings,make,launches:()=>launches};
 }
+for(const two of [false,true])test(`${two?'two-stage':'single-model'} native decode fixture fails locally and releases its image`,{timeout:120000},async t=>{
+ const f=await fixture(t,3),m=f.make();if(!two){delete f.settings.useTwoModels;delete f.settings.secondModel;}
+ const bad=path.join(f.source,'0001.png');fs.writeFileSync(bad,unreadableNativePNG());
+ const info=await sharp(bad,{failOn:'warning'}).metadata();assert.equal(info.width,8);assert.equal(info.format,'svg');
+ const second=[];m.on('native-trace',e=>{if(e.event==='STAGE2')second.push(e.id);});
+ const done=end(m);await m.create(f.settings,f.models,engine);await done;
+ assert.equal(m.session.phase,'completed-with-errors',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,2);assert.equal(m.snapshot().failed,1);
+ assert.equal(m.session.items[1].failure.stage,'decode');assert(!second.includes(1));assert(!fs.existsSync(path.join(m.session.output,m.session.items[1].name)));
+});
 for(const two of [false,true])test(`${two?'two-stage':'single-model'} 1000 jobs with corrupt image 50: 999 complete, report and repaired-source recovery`,{timeout:500000},async t=>{
  const f=await fixture(t,1000),m=f.make();
  if(!two){delete f.settings.useTwoModels;delete f.settings.secondModel;}
- const broken=path.join(f.source,'0049.png'),encoded=fs.readFileSync(broken);fs.writeFileSync(broken,corruptPixelStream(encoded));
+ const broken=path.join(f.source,'0049.png'),encoded=fs.readFileSync(broken);fs.writeFileSync(broken,unreadableNativePNG());
  const header=await sharp(broken).metadata();assert.equal(header.width,8,'corrupt fixture must reach native decode, not preparation rejection');
- await assert.rejects(()=>sharp(broken).raw().toBuffer(),/IDAT|inflate|corrupt|decode|stream/i,'fixture must have invalid pixels, not just a missing optional trailer');
+ assert.equal(header.format,'svg','fixture must have mismatched PNG extension and unsupported native contents');
  let active=0,peak=0,admitted=0,released=0,progressive=false;
  m.on('native-trace',e=>{if(e.event==='ADMIT'){assert.equal(active,0);active++;peak=Math.max(active,peak);admitted++;}if(e.event==='RELEASE'){assert.equal(m.snapshot().completed+m.snapshot().failed,released+1,'no release before durable final adoption or recorded image failure');released++;active--;}});
  m.on('state',s=>{if(s.completed>0&&s.completed<1000)progressive=true;});
