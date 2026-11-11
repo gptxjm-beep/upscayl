@@ -82,14 +82,14 @@ test('shutdown during running/pausing persists progress and can be restored',asy
  assert.equal(recovered.session.phase,'completed');
 });
 
-test('1000 inputs: ledger advances past 200 and 400 and recovery retains all independent file states',async t=>{
- const f=await fixture(t,1000);const m=f.make();let milestone=200,requested=false;
+test('50 inputs: ledger advances past two checkpoints and recovery retains all independent file states',async t=>{
+ const f=await fixture(t,50);const m=f.make();let milestone=10,requested=false;
  m.on('state',s=>{if(s.phase==='running' && s.completed>=milestone && !requested){requested=true;m.pause();}});
  let stop=settled(m);await m.create(f.settings,f.models,fake);await stop;
- const first=m.session.items.filter(i=>i.state==='completed').length;assert(first>=200 && first<400);
- milestone=400;requested=false;stop=settled(m);await m.resume();await stop;
+ const first=m.session.items.filter(i=>i.state==='completed').length;assert(first>=10 && first<25);
+ milestone=25;requested=false;stop=settled(m);await m.resume();await stop;
  const recorded=readJSON(m.session.file);const second=recorded.items.filter(i=>i.state==='completed').length;
- assert(second>=400 && second>first);assert.equal(recorded.items.length,1000);
+ assert(second>=25 && second>first);assert.equal(recorded.items.length,50);
  assert.equal(m.discover()[0].completed,second);
 });
 

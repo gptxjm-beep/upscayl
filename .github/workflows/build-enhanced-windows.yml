@@ -89,7 +89,7 @@ jobs:
         run: python tools/extract-jm2-reference.py "$env:RUNNER_TEMP/jm2-reference"
       - name: Test real batch inference and recovery with software Vulkan
         run: python tools/ci-command.py --label software-Vulkan-functional -- node --test tests/jobs/native-functional.cjs
-      - name: Test two-stage 1000-image admission, checkpoints and crash recovery
+      - name: Test two-stage 50-image admission, checkpoints and crash recovery
         run: python tools/ci-command.py --label two-stage-native --timeout-seconds 900 -- node --test tests/jobs/two-stage-native.cjs
       - name: Check Windows resource observation helper (no GPU benchmark)
         run: python tools/ci-command.py --label resource-observation -- pwsh -NoProfile -File tools/monitor-enhanced-resources.ps1 -DurationSeconds 1 -IntervalSeconds 1 -OutputCsv .test-artifacts/resources-probe.csv

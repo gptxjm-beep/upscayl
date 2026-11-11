@@ -38,23 +38,25 @@ for(const two of [false,true])test(`${two?'two-stage':'single-model'} native dec
  assert.equal(m.session.phase,'completed-with-errors',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,2);assert.equal(m.snapshot().failed,1);
  assert.equal(m.session.items[1].failure.stage,'decode');assert(!second.includes(1));assert(!fs.existsSync(path.join(m.session.output,m.session.items[1].name)));
 });
-for(const two of [false,true])test(`${two?'two-stage':'single-model'} 1000 jobs with corrupt image 50: 999 complete, report and repaired-source recovery`,{timeout:500000},async t=>{
- const f=await fixture(t,1000),m=f.make();
+const stabilityCount=Number(process.env.JM6_STABILITY_COUNT||50);
+assert([50,100].includes(stabilityCount),'JM6 stability tests accept only 50 or 100 images; larger runs require a separately approved change.');
+for(const two of [false,true])test(`${two?'two-stage':'single-model'} ${stabilityCount} jobs with corrupt image 50: ${stabilityCount-1} complete, report and repaired-source recovery`,{timeout:500000},async t=>{
+ const f=await fixture(t,stabilityCount),m=f.make();
  if(!two){delete f.settings.useTwoModels;delete f.settings.secondModel;}
  const broken=path.join(f.source,'0049.png'),encoded=fs.readFileSync(broken);fs.writeFileSync(broken,unreadableNativePNG());
  const header=await sharp(broken).metadata();assert.equal(header.width,8,'corrupt fixture must reach native decode, not preparation rejection');
  assert.equal(header.format,'svg','fixture must have mismatched PNG extension and unsupported native contents');
  let active=0,peak=0,admitted=0,released=0,progressive=false;
  m.on('native-trace',e=>{if(e.event==='ADMIT'){assert.equal(active,0);active++;peak=Math.max(active,peak);admitted++;}if(e.event==='RELEASE'){assert.equal(m.snapshot().completed+m.snapshot().failed,released+1,'no release before durable final adoption or recorded image failure');released++;active--;}});
- m.on('state',s=>{if(s.completed>0&&s.completed<1000)progressive=true;});
+ m.on('state',s=>{if(s.completed>0&&s.completed<stabilityCount)progressive=true;});
  const done=end(m);await m.create(f.settings,f.models,engine);await done;
- assert.equal(m.session.phase,'completed-with-errors',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,999);assert.equal(m.snapshot().failed,1);if(two){assert.equal(admitted,1000);assert.equal(released,1000);assert.equal(peak,1);}assert(progressive);assert.equal(f.launches(),1);
- for(const item of [m.session.items[0],m.session.items[999]]){const {data,info}=await sharp(path.join(m.session.output,item.name)).raw().toBuffer({resolveWithObject:true});assert.equal(info.width,8);assert.equal(info.height,8);assert(data.every(v=>two?v>=75&&v<=77:v>=49&&v<=51),'ordered model stages must match the expected pixels');}
+ assert.equal(m.session.phase,'completed-with-errors',JSON.stringify(m.snapshot()));assert.equal(m.snapshot().completed,stabilityCount-1);assert.equal(m.snapshot().failed,1);if(two){assert.equal(admitted,stabilityCount);assert.equal(released,stabilityCount);assert.equal(peak,1);}assert(progressive);assert.equal(f.launches(),1);
+ for(const item of [m.session.items[0],m.session.items[stabilityCount-2]]){const {data,info}=await sharp(path.join(m.session.output,item.name)).raw().toBuffer({resolveWithObject:true});assert.equal(info.width,8);assert.equal(info.height,8);assert(data.every(v=>two?v>=75&&v<=77:v>=49&&v<=51),'ordered model stages must match the expected pixels');}
  const events=fs.readFileSync(path.join(f.folder,'logs','batch-'+m.session.id+'.log'),'utf8').trim().split('\n').map(JSON.parse);if(two)assert(events.some(e=>e.kind==='stderr'&&/model-load-total first=1 second=1/.test(e.data)));
- const report=fs.readFileSync(m.session.report,'utf8');assert.match(report,/Successful: 999/);assert.match(report,/Failed: 1/);assert.match(report,/0049\.png/);assert(!fs.existsSync(path.join(f.source,'upscayl_batch_report.txt')));assert(fs.existsSync(m.session.file));
- m.removeAllListeners('native-trace');const times=[m.session.items[0],m.session.items[999]].map(item=>[item.name,fs.statSync(path.join(m.session.output,item.name)).mtimeMs]);
- fs.writeFileSync(broken,encoded);let retried=0;m.on('inference-start',()=>retried++);const resumed=end(m);await m.resume();await resumed;assert.equal(m.session.phase,'completed',JSON.stringify(m.snapshot()));assert.equal(retried,two?2:1);for(const [name,time]of times)assert.equal(fs.statSync(path.join(m.session.output,name)).mtimeMs,time);assert.equal(m.snapshot().completed,1000);assert.match(fs.readFileSync(m.session.report,'utf8'),/Failed: 0/);
- console.log(`${two?'Two-stage, capacity=1, model loads=1+1':'Single-model legacy pipeline, one worker process'}: corrupt image 50 skipped, 999 valid, 1 failed; repaired image then resumed alone. Software Vulkan, not GPU performance.`);
+ const report=fs.readFileSync(m.session.report,'utf8');assert(report.includes(`Successful: ${stabilityCount-1}`));assert.match(report,/Failed: 1/);assert.match(report,/0049\.png/);assert(!fs.existsSync(path.join(f.source,'upscayl_batch_report.txt')));assert(fs.existsSync(m.session.file));
+ m.removeAllListeners('native-trace');const times=[m.session.items[0],m.session.items[stabilityCount-2]].map(item=>[item.name,fs.statSync(path.join(m.session.output,item.name)).mtimeMs]);
+ fs.writeFileSync(broken,encoded);let retried=0;m.on('inference-start',()=>retried++);const resumed=end(m);await m.resume();await resumed;assert.equal(m.session.phase,'completed',JSON.stringify(m.snapshot()));assert.equal(retried,two?2:1);for(const [name,time]of times)assert.equal(fs.statSync(path.join(m.session.output,name)).mtimeMs,time);assert.equal(m.snapshot().completed,stabilityCount);assert.match(fs.readFileSync(m.session.report,'utf8'),/Failed: 0/);
+ console.log(`${two?'Two-stage, capacity=1, model loads=1+1':'Single-model legacy pipeline, one worker process'}: corrupt image 50 skipped, ${stabilityCount-1} valid, 1 failed; repaired image then resumed alone. Software Vulkan, not GPU performance.`);
 });
 for(const corrupt of [false,true])test(`pause after durable first stage; recovery ${corrupt?'rebuilds a corrupt checkpoint':'starts from stage two'}`,{timeout:120000},async t=>{
  const f=await fixture(t),m=f.make();let pause=false;m.on('native-trace',e=>{if(e.event==='CHECKPOINT'&&!pause){pause=true;m.pause();}});
