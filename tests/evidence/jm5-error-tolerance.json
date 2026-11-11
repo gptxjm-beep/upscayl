@@ -1,0 +1,30 @@
+{
+  "scope": "Linux software Vulkan, actual deterministic NCNN scalar graphs. No NVIDIA benchmark or 1000 trained-page quality claim.",
+  "results": {
+    "two-stage": {
+      "initialInputs": 1000,
+      "corruptOrdinal": 50,
+      "successfulBeforeRepair": 999,
+      "failedBeforeRepair": 1,
+      "retryManifestImages": 1,
+      "successfulAfterRepair": 1000,
+      "failedAfterRepair": 0,
+      "reportVerifiedByTest": true,
+      "adoptedFileMtimesPreservedByTest": true,
+      "maximumActiveAssertedByTest": 1
+    },
+    "single-model": {
+      "initialInputs": 1000,
+      "corruptOrdinal": 50,
+      "successfulBeforeRepair": 999,
+      "failedBeforeRepair": 1,
+      "retryManifestImages": 1,
+      "successfulAfterRepair": 1000,
+      "failedAfterRepair": 0,
+      "reportVerifiedByTest": true,
+      "adoptedFileMtimesPreservedByTest": true
+    }
+  },
+  "tests": "tests/jobs/two-stage-native.cjs",
+  "provenance": "Assertions passed in the complete test run; final counts and retry manifest confirmed in retained job logs. Detailed logs rotate within their size limits."
+}

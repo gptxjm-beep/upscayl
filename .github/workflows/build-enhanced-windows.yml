@@ -35,7 +35,7 @@ jobs:
           cache: npm
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Install pinned CMake
         run: python tools/ci-command.py --label CMake -- python -m pip install cmake==3.31.6
@@ -64,7 +64,7 @@ jobs:
       - name: Compile TypeScript
         run: python tools/ci-command.py --label TypeScript -- npm run tsc
       - name: Test persistent sessions
-        run: python tools/ci-command.py --label sessions --timeout-seconds 240 -- node --test tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs tests/jobs/output.test.cjs tests/jobs/single-output.test.cjs tests/jobs/open-image.test.cjs tests/jobs/model-metadata.test.cjs
+        run: python tools/ci-command.py --label sessions --timeout-seconds 240 -- node --test tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs tests/jobs/output.test.cjs tests/jobs/single-output.test.cjs tests/jobs/open-image.test.cjs tests/jobs/model-metadata.test.cjs tests/jobs/image-errors.test.cjs
       - name: Test native admission and drain protocol
         shell: cmd
         run: cl /std:c++17 /utf-8 /EHsc tests\jobs\protocol.cpp /Fe:protocol-test.exe && protocol-test.exe
@@ -99,6 +99,8 @@ jobs:
         run: python tools/ci-command.py --label recovery-dialogs -- node tests/jobs/recovery-dialogs.cjs
       - name: Test two-stage controls and legacy payload isolation
         run: python tools/ci-command.py --label two-stage-UI --timeout-seconds 180 -- node tests/jobs/two-stage-ui.cjs
+      - name: Test nonblocking image error counter and completion report actions
+        run: python tools/ci-command.py --label completion-UI --timeout-seconds 180 -- node tests/jobs/completion-ui.cjs
       - name: Test Electron close and source-folder recovery
         run: python tools/ci-command.py --label Electron-recovery -- node tests/jobs/recovery-ui.cjs
       - name: Package Windows installer and portable ZIP
@@ -111,6 +113,19 @@ jobs:
           python tools/ci-command.py --label packaged-drop --timeout-seconds 180 -- node tests/jobs/drop-ui.cjs
       - name: Verify installer and ZIP payloads and compute delivery checksums
         run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
+      - name: Install pinned CPU model-conversion and reference tools
+        run: |
+          python -m pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r tools/models/requirements.txt
+      - name: Verify all three original trained models and both ordered model pairs on Windows
+        run: python tools/ci-command.py --label Windows-model-reference --timeout-seconds 3600 -- python tools/models/windows-ci.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jm5-Optional-Model-Compatibility
+          path: |
+            .test-artifacts/optional-models
+            .test-artifacts/trained-two-stage
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: Upscayl-Enhanced-2.15.0-jm.5-Installer-x64
@@ -131,44 +146,9 @@ jobs:
         if: always()
         with:
           name: Windows-build-diagnostics
-          path: .test-artifacts/
+          path: |
+            .test-artifacts/
+            !.test-artifacts/**/*.bin
+            !.test-artifacts/**/*.pth
           include-hidden-files: true
           if-no-files-found: ignore
-
-  optional-model-compatibility:
-    needs: windows
-    runs-on: windows-2022
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18.20.5'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: Upscayl-Enhanced-2.15.0-jm.5-Portable-x64
-          path: .test-artifacts/delivery
-      - name: Extract the tested engine and its runtime dependencies only
-        shell: pwsh
-        run: |
-          $zip = Get-ChildItem .test-artifacts/delivery/*.zip | Select-Object -First 1
-          Expand-Archive $zip.FullName .test-artifacts/unpacked
-          Copy-Item '.test-artifacts/unpacked/resources/bin/*' resources/win/bin -Force
-      - name: Install pinned CPU conversion and reference tools
-        run: |
-          python -m pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install -r tools/models/requirements.txt
-      - name: Convert original weights and compare actual Windows Vulkan inference to PyTorch
-        run: python tools/ci-command.py --label Windows-model-reference --timeout-seconds 2400 -- python tools/models/windows-ci.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: jm5-Optional-Model-Compatibility
-          path: |
-            .test-artifacts/optional-models
-            .test-artifacts/ci
-          if-no-files-found: error

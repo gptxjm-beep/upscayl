@@ -35,6 +35,8 @@ def verify_tree(folder, engine_hash):
     engine = folder / 'resources/bin/upscayl-jm.exe'
     assert engine.is_file() and sha(engine) == engine_hash, 'Modified engine absent or mismatched'
     assert b'@JM3 GATE' in engine.read_bytes(), 'jm.3 inference gate protocol absent'
+    assert b'@JM5 FATAL' in engine.read_bytes(), 'Job-wide fault protocol absent'
+    assert b'capacity=1' in engine.read_bytes(), 'Bounded two-stage worker absent'
     pe_x64(engine)
     assert sha(engine) != sha(ROOT / 'resources/win/bin/upscayl-bin.exe'), 'Original engine substituted'
     app_exe = folder / 'Upscayl Enhanced.exe'
@@ -58,7 +60,10 @@ const read=n=>asar.extractFile(file,path.normalize(n)).toString();
 const pkg=JSON.parse(read('package.json'));
 if(pkg.version!=='2.15.0-jm.5'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
 if(!read('export/electron/jobs/integration.js').includes('upscayl-jm.exe'))throw Error('Wrong engine route');
-if(!read('export/electron/jobs/manager.js').includes('@JM'))throw Error('Session protocol absent');
+if(!read('export/electron/jobs/manager.js').includes('completed-with-errors'))throw Error('Image error completion handling absent');
+if(!read('export/electron/jobs/report.js').includes('upscayl_batch_report'))throw Error('Error reporter absent');
+const models=JSON.parse(read('export/common/optional-models.json'));
+if(models['1x-manhwa-null'].nativeScale!==1||models['1x-manhwa-null'].inputMultiple!==4||models['1x-manhwa-null'].prepadding!==12)throw Error('Incorrect Manhwa metadata');
 if(!read('export/electron/main-window.js').includes('Upscayl Enhanced'))throw Error('Updater guard absent');
 if(!read('export/electron/index.js').includes('Upscayl Enhanced'))throw Error('User data isolation absent');
 if(!read('export/electron/index.js').includes('integration_1.startBatch'))throw Error('Batch handler not connected to enhanced engine');

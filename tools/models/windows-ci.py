@@ -20,16 +20,21 @@ def main():
    if len(candidates)!=1:raise RuntimeError('Expected one x64 optimizer; found '+str(candidates))
    optimizer=work/'ncnnoptimize.exe';optimizer.write_bytes(archive.read(candidates[0]))
   environment={**os.environ,'VK_ICD_FILENAMES':str(ROOT/'node_modules/electron/dist/vk_swiftshader_icd.json'),'VK_DRIVER_FILES':str(ROOT/'node_modules/electron/dist/vk_swiftshader_icd.json')}
-  pairs=[('IllustrationJaNai_V1_ModelsOnly.zip','4x_IllustrationJaNai_V1_ESRGAN_135k.pth','4x-illustrationjanai-v1-esrgan'),('MangaJaNai_V1_ModelsOnly.zip','2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth','2x-mangajanai-1600p-v1-esrgan')]
+  pairs=[(None,'1x_Manhwa_Null.pth','1x-manhwa-null'),('IllustrationJaNai_V1_ModelsOnly.zip','4x_IllustrationJaNai_V1_ESRGAN_135k.pth','4x-illustrationjanai-v1-esrgan'),('MangaJaNai_V1_ModelsOnly.zip','2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth','2x-mangajanai-1600p-v1-esrgan')]
   for asset,weight,id in pairs:
-   file=work/asset;download('https://github.com/the-database/MangaJaNai/releases/download/1.0.0/'+asset,file)
-   with zipfile.ZipFile(file) as archive:
-    names=[name for name in archive.namelist() if name.split('/')[-1]==weight]
-    if len(names)!=1:raise RuntimeError('Original asset did not contain the exact expected weight.')
-    weights=work/weight;weights.write_bytes(archive.read(names[0]))
+   if asset:
+    file=work/asset;download('https://github.com/the-database/MangaJaNai/releases/download/1.0.0/'+asset,file)
+    with zipfile.ZipFile(file) as archive:
+     names=[name for name in archive.namelist() if name.split('/')[-1]==weight]
+     if len(names)!=1:raise RuntimeError('Original asset did not contain the exact expected weight.')
+     weights=work/weight;weights.write_bytes(archive.read(names[0]))
+   else:
+    weights=ROOT/'vendor/optional-model-sources/Manhwa-Null'/weight
    subprocess.run([sys.executable,str(ROOT/'tools/models/prepare.py'),'--id',id,'--weights',str(weights),'--optimizer',str(optimizer),'--engine',str(runtime/'upscayl-jm.exe'),'--destination',str(destination),'--accept-noncommercial-sharealike-license'],check=True,env=environment,timeout=1800)
    manifest=json.loads((destination/(id+'.model.json')).read_text());evidence={k:manifest[k] for k in ['id','sourceSha256','license','validation']}
    print('::notice title=Windows optional-model compatibility::'+json.dumps(evidence),flush=True)
+  for first in ['2x-mangajanai-1600p-v1-esrgan','1x-manhwa-null']:
+   subprocess.run(['node',str(ROOT/'tests/jobs/trained-two-stage.cjs')],check=True,timeout=900,env={**environment,'UPSCAYL_TEST_ENGINE':str(runtime/'upscayl-jm.exe'),'JM5_VERIFIED_MODEL_DIR':str(destination),'JM5_FIRST_MODEL':first})
   # Keep derived optional models, their licenses and evidence together. They
   # are separate artifacts and never injected into the default app package.
   shutil.copy2(ROOT/'tools/models/README.md',destination/'README.md')
