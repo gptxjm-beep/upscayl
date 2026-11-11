@@ -1,0 +1,73 @@
+{
+  "scope": "Work in progress; no model readiness claims.",
+  "models": [
+    {
+      "id": "4x-illustrationjanai-v3detail-fdat-xl",
+      "name": "IllustrationJaNai V3 Detail",
+      "source": "https://github.com/the-database/MangaJaNai/releases/tag/3.0.0",
+      "downloaded": true,
+      "license": "CC-BY-NC-4.0",
+      "originalWeightsSha256": "fbafec1f5a126c251de8a21e177e5a710ba2e75c7fd88fe989eb8df0508790c9",
+      "originalGraphOrLutSha256": "2977da028b27424a17a9b3bfbd732033e9e02062d6849280fa67f334985e1245",
+      "status": "BF16 CPU load failed. FP32 promotion ran one 32x32 to 128x128 tensor. Reference comparison/integration pending."
+    },
+    {
+      "id": "4x-illustrationjanai-v3denoise-fdat-xl",
+      "name": "IllustrationJaNai V3 Denoise",
+      "source": "https://github.com/the-database/MangaJaNai/releases/tag/3.0.0",
+      "downloaded": true,
+      "license": "CC-BY-NC-4.0",
+      "originalWeightsSha256": "3099fd76f427ee29513aa91dda02b9c1a54e0f7fdd08b653175655de798562f7",
+      "originalGraphOrLutSha256": "1b41dc4d040ce50cdfb168dc75e43418817742390fdb4eb2dc3ac844a4e2d77f",
+      "status": "Downloaded and promoted FP32; inference/reference integration pending."
+    },
+    {
+      "id": "4x-ultrasharp-v2-dat2",
+      "name": "UltraSharp V2",
+      "source": "https://huggingface.co/Kim2091/UltraSharpV2",
+      "downloaded": false,
+      "license": null,
+      "originalWeightsSha256": null,
+      "originalGraphOrLutSha256": null,
+      "status": "Current executor denies CONNECT. Official weights/license not readable; not installed or tested."
+    },
+    {
+      "id": "4x-alchemy",
+      "name": "Alchemy 4X",
+      "source": "https://github.com/renarchi/Re-SISR/releases/tag/4x_Alchemy",
+      "downloaded": true,
+      "license": "CC-BY-4.0",
+      "originalWeightsSha256": "8bafb02ffcbc2fa6f25523f66b9a055bff4b2a851f8bbe34a2f382703eb1c953",
+      "originalGraphOrLutSha256": null,
+      "status": "weights_only load and PLKSR 4X architecture detection succeeded; ONNX inference/integration pending."
+    },
+    {
+      "id": "adaptivephotonet-6m",
+      "name": "AdaptivePhotoNet",
+      "source": "https://huggingface.co/Phitran21/AdaptivePhotoNet-6M-ONNX",
+      "downloaded": false,
+      "license": null,
+      "originalWeightsSha256": null,
+      "originalGraphOrLutSha256": null,
+      "status": "Current executor denies CONNECT. Recipe implementation/license require official files; not installed or tested."
+    },
+    {
+      "id": "adaptive-3d-lut-srgb",
+      "name": "Adaptive 3D LUT",
+      "source": "https://github.com/HuiZeng/Image-Adaptive-3DLUT",
+      "downloaded": true,
+      "license": "Apache-2.0",
+      "originalWeightsSha256": "bae9865395625ecae58cfe86147e521093bb1e29e7b2544e02adb238b8035021",
+      "originalGraphOrLutSha256": "c1bb2bc4b7239c1a7e96159f5923123ba796b1fceb0b8c3132b423ea825b821a",
+      "status": "Original sRGB paired classifier/LUTs safely loaded; predictor and interpolation integration pending."
+    }
+  ],
+  "network": {
+    "executorRevision": "1",
+    "state": "enforced",
+    "huggingFaceAllowed": false,
+    "freshProbe": "CONNECT tunnel failed, response 403",
+    "userUpdatedReusableEnvironment": true,
+    "nextAction": "Attach a task to the newly saved/published environment, refresh environment_status, retry official model APIs and files."
+  }
+}
