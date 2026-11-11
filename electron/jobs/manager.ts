@@ -251,6 +251,7 @@ export class BatchManager extends EventEmitter {
       if(this.closing) {s.phase='paused';this.save();return;}
       // Delete only work directories owned by this session, never final images.
       if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt, {recursive:true,force:true});
+      for(const item of unavailable)this.log('image-preflight',{source:item.source,failure:item.failure});
       const pending = s.items.filter(i => i.state !== 'completed'&&!unavailable.has(i));
       this.processingStarted=false;
       this.gateClosed=false;this.pauseRequestedAt=undefined;

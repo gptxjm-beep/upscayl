@@ -10,6 +10,7 @@ function trim(file:string){
 // Owned log files only; snapshots, outputs and unrelated Electron logs are never pruned.
 export function writeBatchEvent(directory:string,job:string|undefined,kind:string,data:unknown){
  fs.mkdirSync(directory,{recursive:true});
+ const critical=!!job&&/^(image|image-validation-error|image-preflight|job-failure|engine-error|preflight-error)$/.test(kind);
  const file=path.join(directory,job?'batch-'+job+'.log':'batch-events.log'),fresh=!fs.existsSync(file);
  let event={at:new Date().toISOString(),job,kind,data};
  let line=JSON.stringify(event,(_key,value)=>typeof value==='string'?value.slice(0,6000):value)+'\n';
@@ -18,13 +19,14 @@ export function writeBatchEvent(directory:string,job:string|undefined,kind:strin
   fs.rmSync(file+'.1',{force:true});trim(file);fs.renameSync(file,file+'.1');
  }
  fs.appendFileSync(file,line,'utf8');
+ if(critical){const errorFile=path.join(directory,'batch-'+job+'.errors.log');if(fs.existsSync(errorFile)&&fs.statSync(errorFile).size+Buffer.byteLength(line)>LIMIT){fs.rmSync(errorFile+'.1',{force:true});trim(errorFile);fs.renameSync(errorFile,errorFile+'.1');}fs.appendFileSync(errorFile,line,'utf8');}
  if(fresh&&job)pruneBatchLogs(directory,file);
 }
 export function pruneBatchLogs(directory:string,current?:string){
  if(!fs.existsSync(directory))return;
  const groups=new Map<string,{time:number;files:string[]}>();
  for(const name of fs.readdirSync(directory)){
-  const match=/^(batch-[a-f0-9-]+\.log)(?:\.1)?$/i.exec(name);
+  const match=/^(batch-[a-f0-9-]+)(?:\.errors)?\.log(?:\.1)?$/i.exec(name);
   if(!match&&name!=='batch-events.log'&&name!=='batch-events.log.1')continue;
   const file=path.join(directory,name),stat=fs.lstatSync(file);if(!stat.isFile())continue;
   trim(file);if(!match)continue;

@@ -27,3 +27,7 @@ test('an open/locked previous report is preserved and a fresh report is publishe
 test('Pause on the last resolved image with errors defers the completion report until Resume',async t=>{
  const f=await fixture(t,'encode'),m=f.make();let paused=false;m.on('state',state=>{if(state.phase==='running'&&state.completed===3&&state.failed===1&&!paused){paused=true;m.pause();}});const stopped=end(m);await m.create(f.settings,f.models,fake);await stopped;assert.equal(m.session.phase,'paused',JSON.stringify(m.snapshot()));assert.equal(m.session.report,undefined);const resumed=end(m);await m.resume();await resumed;assert.equal(m.session.phase,'completed');
 });
+
+test('a failure near the start remains in bounded error logs after verbose stage logs rotate',t=>{
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm-critical-log-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));const {writeBatchEvent,pruneBatchLogs}=require('../../export/electron/jobs/log.js'),id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';writeBatchEvent(folder,id,'image',{image:'0050.png',stage:'encode',code:'0x88982f51',details:'WIC diagnostic'});for(let i=0;i<2000;i++)writeBatchEvent(folder,id,'two-stage',{id:i,details:'x'.repeat(600)});assert.match(fs.readFileSync(path.join(folder,'batch-'+id+'.errors.log'),'utf8'),/0050\.png/);assert(fs.statSync(path.join(folder,'batch-'+id+'.errors.log')).size<=256*1024);fs.writeFileSync(path.join(folder,'unrelated.log'),'keep');pruneBatchLogs(folder);assert.equal(fs.readFileSync(path.join(folder,'unrelated.log'),'utf8'),'keep');
+});
