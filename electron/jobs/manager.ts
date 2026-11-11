@@ -1,3 +1,6 @@
+import {needsPipeline,PIPELINE_MODELS} from '../../common/pipeline-models';
+import {verifiedPipelineModel} from './pipeline-model-files';
+import type {StageModel} from './onnx-worker';
 import { writeErrorReport, isJobFailure } from "./report";
 import { twoStageDimensions, checkpointFile, validateCheckpointImage, syncFile, ImageStage, Checkpoint } from "./two-stage";
 import { modelMetadata } from "../../common/model-metadata";
@@ -23,7 +26,7 @@ export type Phase = 'preparing' | 'resuming' | 'recovering' | 'running' | 'pausi
 type Item = { stage?:ImageStage; checkpoint?:Checkpoint; source: string; sourceHash: string; size: [number, number]; name: string;
   state: 'pending' | 'processing' | 'saving' | 'completed' | 'failed' | 'committing'; outputHash?: string; error?: string; failure?:BatchFailure };
 export type Session = { version: 1|2; secondModelDir?:string; secondModelHash?:string; id: string; source: string; output: string; file: string;
-  modelDir: string; modelHash: string; engine: string; engineHash: string; settings: BatchUpscaylPayload;
+  modelDir: string; modelHash: string; engine: string; engineHash: string; nativeEngine?:string;nativeEngineHash?:string;processingHash?:string; settings: BatchUpscaylPayload;
   report?:string; reportHash?:string; repairFailedSources?:boolean; settingsHash: string; phase: Phase; updated: string; items: Item[]; attempt?: string; pid?: number; error?: string;cancelConfirmed?:boolean;shutdown?:'open'|'clean';failure?:BatchFailure };
 // Avoid cached input handles preventing atomic adoption on Windows.
 sharp.cache({ files: 0 });
@@ -48,7 +51,7 @@ export class BatchManager extends EventEmitter {
   private control?: string;
   private finishing: Promise<void> = Promise.resolve();
   constructor(public registry: string, private metadata: (input: string, output: string) => Promise<void> = async () => {},
-    private launch = (engine:string,args:string[]) => spawn(engine,args,{windowsHide:true})) { super();try{pruneBatchLogs(path.join(path.dirname(registry),'logs'));}catch{} }
+    private launch = (engine:string,args:string[]) => engine.endsWith('onnx-worker.js')?spawn(process.execPath,[engine,...args],{windowsHide:true,env:{...process.env,ELECTRON_RUN_AS_NODE:'1'}}):spawn(engine,args,{windowsHide:true})) { super();try{pruneBatchLogs(path.join(path.dirname(registry),'logs'));}catch{} }
   hasActiveBatch() {
     return this.busy || this.settling || !!this.child || !!this.session && ['preparing','resuming','recovering','running','pausing','paused','failed'].includes(this.session.phase);
   }
@@ -90,13 +93,13 @@ export class BatchManager extends EventEmitter {
     const issue=this.recoveryIssues.find(item=>item.id===id);if(!issue)throw Error('Recovery notice is no longer available.');
     archiveRecoveryIssue(this.registry,issue);this.recoveryIssues=this.recoveryIssues.filter(item=>item.id!==id);
   }
-  async create(settings: BatchUpscaylPayload, modelDir: string, engine: string, secondModelDir?:string) {
+  async create(settings: BatchUpscaylPayload, modelDir: string, engine: string, secondModelDir?:string,nativeEngine?:string) {
     if (this.child || this.busy || this.cancelling || this.settling || this.session && ['preparing','resuming','recovering','running','pausing','paused'].includes(this.session.phase)) throw new Error('Finish or cancel the current batch first.');
     this.busy = true; this.cancelRequested = false;
     try {
       const id = crypto.randomUUID();
       const source = settings.singleImage ? path.dirname(path.resolve(settings.singleImage)) : path.resolve(settings.batchFolderPath);
-      if(settings.singleImage&&!settings.useTwoModels)throw Error("Managed Single requires two-stage settings.");
+      if(settings.singleImage&&!settings.useTwoModels&&!needsPipeline(settings))throw Error("Managed Single requires two-stage settings.");
       if(settings.useTwoModels&&!settings.secondModel)throw Error("Select a second AI model.");
       const baseName=`upscayl_${settings.saveImageAs}_${settings.model}_${settings.useCustomWidth ? settings.customWidth+'px' : settings.scale+'x'}`;
       const base=path.join(path.resolve(settings.outputPath),baseName+(settings.useTwoModels?"_then_"+settings.secondModel:""));
@@ -127,23 +130,33 @@ export class BatchManager extends EventEmitter {
         item.name=candidate;used.add(candidate.toLowerCase());
       }
       const engineHash=await hash(engine), modelHash=await this.modelHash(modelDir,settings.model);
+      const nativeEngineHash=nativeEngine?await hash(nativeEngine):undefined;
+      if(needsPipeline(settings)&&(!nativeEngine||!nativeEngineHash))throw Error('The verified NCNN bridge is missing.');
+      if(settings.colorStyle!==undefined&&!['natural','vivid'].includes(settings.colorStyle))throw Error('Invalid color style.');
+      if(settings.colorStrength!==undefined&&(!Number.isFinite(settings.colorStrength)||settings.colorStrength<0||settings.colorStrength>1))throw Error('Invalid color effect strength.');
       if(this.cancelRequested || this.closing) throw new Error('Batch preparation cancelled');
       fs.mkdirSync(output, { recursive: true });
       let file = path.join(output, '.upscayl-session', 'state.json');
       try { fs.mkdirSync(path.dirname(file), { recursive: true }); } catch { file = path.join(this.registry, id, 'state.json'); }
       this.session = { version:settings.useTwoModels?2:1, ...(settings.useTwoModels?{secondModelDir:secondModelDir||modelDir,secondModelHash}:{}), id, source, output, file, engine, engineHash, modelDir,
-        modelHash, settings: JSON.parse(JSON.stringify(settings)),
+        modelHash,...(nativeEngine?{nativeEngine,nativeEngineHash,processingHash:this.pipelineSignature(settings)}:{}), settings: JSON.parse(JSON.stringify(settings)),
         settingsHash:crypto.createHash('sha256').update(JSON.stringify(settings)).digest('hex'), phase:'preparing', shutdown:'open', updated:'', items };
       this.save();
     } finally { this.busy = false; }
     if(!this.cancelRequested && !this.closing) await this.resume('preparing');
   }
+  private pipelineSignature(settings:BatchUpscaylPayload){
+    const ids=[settings.model,...settings.useTwoModels?[settings.secondModel!]:[]];
+    const plan=ids.map(id=>{const m=PIPELINE_MODELS[id],legacy=modelMetadata(id);return m?{id,engine:m.engine,task:m.task,version:m.version,nativeScale:m.nativeScale,inputMultiple:m.inputMultiple,minimum:m.minimum,halo:m.halo}:{id,engine:'ncnn',nativeScale:getModelScale(id),inputMultiple:legacy?.inputMultiple||1,prepadding:legacy?.prepadding,fullPrecision:legacy?.fullPrecision};});
+    return crypto.createHash('sha256').update(JSON.stringify({plan,ort:'1.31.1',provider:process.env.JM6_PROVIDER||(process.platform==='win32'?'dml':'cpu')})).digest('hex');
+  }
   private async modelHash(dir: string, model: string) {
     if(path.basename(model) !== model || /[\\/:]/.test(model)) throw new Error('Invalid model name');
+    const pipeline=await verifiedPipelineModel(dir,model);if(pipeline)return pipeline.hash;
     const verified=await verifiedOptionalModel(dir,model);if(verified)return verified;
     return (await hash(path.join(dir,model+'.param'))) + ':' + (await hash(path.join(dir,model+'.bin')));
   }
-  async restart(id: string, replacementEngine?:string, replacementModels?:string, currentSettings?:BatchUpscaylPayload, replacementSecondModels?:string) {
+  async restart(id: string, replacementEngine?:string, replacementModels?:string, currentSettings?:BatchUpscaylPayload, replacementSecondModels?:string,replacementNativeEngine?:string) {
     if(!/^[a-f0-9-]+$/.test(id)) throw new Error('Invalid session ID');
     const link=readJSON<{file:string}>(path.join(this.registry,id+'.json'));
     const previous=readJSON<Session>(link.file,value=>this.validateRecord(value,id,link.file));
@@ -151,14 +164,14 @@ export class BatchManager extends EventEmitter {
     const engine=replacementEngine || previous.engine;
     this.requireInferenceGate(engine);
     if(currentSettings&&path.resolve(currentSettings.singleImage?path.dirname(currentSettings.singleImage):currentSettings.batchFolderPath)!==previous.source)throw new Error('Fresh settings must refer to the selected source folder.');
-    await this.create(currentSettings || previous.settings,replacementModels || previous.modelDir,engine,replacementSecondModels||previous.secondModelDir);
+    await this.create(currentSettings || previous.settings,replacementModels || previous.modelDir,engine,replacementSecondModels||previous.secondModelDir,replacementNativeEngine||previous.nativeEngine);
     // The replacement journal/engine now exists. Preserve all old final images.
     try {
       atomicJSON(path.join(this.registry,previous.id+'.json'),{file:previous.file,source:previous.source,retired:true});
       this.removeSession(previous);
     }catch(error){this.log('retirement-warning',{id:previous.id,error:String(error)});this.emit('problem','The new session started, but old temporary files could not be fully removed. Previous output images are preserved.');}
   }
-  async restore(id: string, replacementEngine?:string,replacementModels?:string,replacementSecondModels?:string) {
+  async restore(id: string, replacementEngine?:string,replacementModels?:string,replacementSecondModels?:string,replacementNativeEngine?:string) {
     if(this.child || this.busy || this.session && ['preparing','resuming','recovering','running','pausing','paused'].includes(this.session.phase)) throw new Error('A batch is already open.');
     if(!/^[a-f0-9-]+$/.test(id)) throw new Error('Invalid session ID');
     const link = readJSON<{file:string;retired?:boolean}>(path.join(this.registry,id+'.json'));
@@ -170,8 +183,8 @@ export class BatchManager extends EventEmitter {
     // Accept relocation of identical bytes, or the single verified jm.3 build
     // whose manifest and gate protocol were checked before this update.
     let recordedEngineHash='';try{recordedEngineHash=await hash(s.engine);}catch{}
-    const compatibleOld=['295f5bfaf0d4ecadd97e9f27b0270393d31e1d0d94dab09cdc47eb142021ce1c','907432b61838e6fc9af832fe023b07e937b1c5ecd0c331b5a900665611703e7a'];
-    const compatibleV2=['6d031af68d59bd871de84d4139f617728f669d554a534a80634761d3c4762f0b']; // verified Windows 857c070 worker, same v2 manifest/checkpoint protocol
+    const compatibleOld=['c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe','295f5bfaf0d4ecadd97e9f27b0270393d31e1d0d94dab09cdc47eb142021ce1c','907432b61838e6fc9af832fe023b07e937b1c5ecd0c331b5a900665611703e7a'];
+    const compatibleV2=['c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe','6d031af68d59bd871de84d4139f617728f669d554a534a80634761d3c4762f0b']; // verified Windows 857c070 worker, same v2 manifest/checkpoint protocol
     const knownUpgrade=s.version===1?compatibleOld.includes(s.engineHash):compatibleV2.includes(s.engineHash);
     if(replacementEngine&&(recordedEngineHash!==s.engineHash||knownUpgrade)){
       const replacementHash=await hash(replacementEngine);
@@ -186,6 +199,7 @@ export class BatchManager extends EventEmitter {
       let old='';try{old=await this.modelHash(s.secondModelDir!,s.settings.secondModel);}catch{}
       if(old!==s.secondModelHash&&await this.modelHash(replacementSecondModels,s.settings.secondModel)===s.secondModelHash)s.secondModelDir=replacementSecondModels;
     }
+    if(s.nativeEngine&&replacementNativeEngine&&await hash(replacementNativeEngine)===s.nativeEngineHash)s.nativeEngine=replacementNativeEngine;
     this.requireInferenceGate(s.engine);
     this.session = s;
     const repairFailed=s.phase==='completed-with-errors';
@@ -202,6 +216,7 @@ export class BatchManager extends EventEmitter {
       this.jobFailed=false;this.validationFailures={checkpoint:0,output:0};const unavailable=new Set<Item>();
       s.phase=operation;s.shutdown='open';this.log(operation+'-requested',{completed:this.snapshot()!.completed,total:s.items.length});this.save();
       if(crypto.createHash('sha256').update(JSON.stringify(s.settings)).digest('hex') !== s.settingsHash) throw new Error('Saved settings changed; session cannot be resumed.');
+      if(needsPipeline(s.settings)&&s.processingHash!==this.pipelineSignature(s.settings))throw Error('Processing backend or model metadata changed; restore the recorded version before resuming.');
       if(await hash(s.engine) !== s.engineHash || await this.modelHash(s.modelDir,s.settings.model) !== s.modelHash) throw new Error('Engine/model changed. Restore the recorded files before resuming.');
       if(s.version===2&&(!s.settings.useTwoModels||!s.settings.secondModel||!s.secondModelDir||await this.modelHash(s.secondModelDir,s.settings.secondModel)!==s.secondModelHash))throw Error('Second model changed; restore its recorded files before resuming.');
       for(const i of s.items) {
@@ -280,6 +295,16 @@ export class BatchManager extends EventEmitter {
       for(const item of pending) {item.state='pending';item.error=undefined;item.failure=undefined;}
       this.save();
       const options = s.settings;
+      if(needsPipeline(options)){
+        if(!s.nativeEngine||await hash(s.nativeEngine)!==s.nativeEngineHash)throw Error('The recorded NCNN bridge changed.');
+        const stageModel=async(id:string,directory:string):Promise<StageModel>=>{
+          const verified=await verifiedPipelineModel(directory,id);
+          if(verified){const m=PIPELINE_MODELS[id];return {id,directory,engine:'onnx',nativeScale:m.nativeScale,inputMultiple:m.inputMultiple,minimum:m.minimum,halo:m.halo,version:m.version,hash:verified.hash,manifest:verified.manifest};}
+          return {id,directory,engine:'ncnn',nativeScale:Number(getModelScale(id)),inputMultiple:modelMetadata(id)?.inputMultiple||1,minimum:1,halo:0,version:'legacy-ncnn',hash:await this.modelHash(directory,id),nativeEngine:s.nativeEngine,nativeHash:s.nativeEngineHash,fullPrecision:modelMetadata(id)?.fullPrecision};
+        };
+        const models=[await stageModel(options.model,s.modelDir)];if(options.useTwoModels)models.push(await stageModel(options.secondModel!,s.secondModelDir!));
+        fs.writeFileSync(path.join(attempt,'pipeline.json'),JSON.stringify({models,options:{tileSize:options.tileSize,ttaMode:options.ttaMode,gpuId:options.gpuId,compression:options.compression,format:options.saveImageAs,colorStrength:options.colorStrength,colorStyle:options.colorStyle,provider:process.env.JM6_PROVIDER},twoStage:s.version===2,items:pending.map(item=>({source:item.source,output:path.join(attempt,item.name),checkpoint:s.version===2?checkpointFile(s.file,s.items.indexOf(item)):undefined,middle:s.version===2?twoStageDimensions(item.size,s.settings).middle:undefined,final:this.outputDimensions(item),resume:item.stage==='stage1-complete'?2:1}))}));
+      }
       const args = getBatchArguments({ inputDir:s.source, outputDir:attempt, modelsPath:s.modelDir,
         model:options.model, gpuId:options.gpuId, saveImageAs:options.saveImageAs,
         scale:options.scale, customWidth:options.useCustomWidth ? options.customWidth : '',
@@ -324,7 +349,7 @@ export class BatchManager extends EventEmitter {
                 const digest=await validateCheckpointImage(temporary,size);syncFile(temporary);fs.renameSync(temporary,file);
                 item.checkpoint={file,hash:digest,owner:s.id,sourceHash:item.sourceHash,settingsHash:s.settingsHash,modelsHash:s.modelHash+':'+s.secondModelHash,size};
                 item.stage='stage1-complete';this.validationFailures.checkpoint=0;this.save();fs.writeFileSync(path.join(attempt,id+'.stage1.ack'),'1');
-              }catch(error){item.stage='failed';item.state='failed';item.error=String(error);if(!item.failure)item.failure=describeFailure(String(error),item.source,'checkpoint',(error as NodeJS.ErrnoException).code);if(isJobFailure(error,item.failure.stage,(error as NodeJS.ErrnoException).code))this.stopForJobFailure(item.failure);else if(item.failure.stage==='checkpoint'&&++this.validationFailures.checkpoint>=3)this.stopForJobFailure(describeFailure('Repeated intermediate-image validation failures stopped the job.',undefined,'validation-global'));this.save();fs.writeFileSync(path.join(attempt,id+'.reject'),'1');}
+              }catch(error){item.stage='failed';item.state='failed';item.error=String(error);if(!item.failure)item.failure=describeFailure(String(error),item.source,'checkpoint',(error as NodeJS.ErrnoException).code);this.log('checkpoint-validation-error',item.failure);if(isJobFailure(error,item.failure.stage,(error as NodeJS.ErrnoException).code))this.stopForJobFailure(item.failure);else if(item.failure.stage==='checkpoint'&&++this.validationFailures.checkpoint>=3)this.stopForJobFailure(describeFailure('Repeated intermediate-image validation failures stopped the job.',undefined,'validation-global'));this.save();fs.writeFileSync(path.join(attempt,id+'.reject'),'1');}
             }).catch(error=>{this.stopForJobFailure(describeFailure(String(error),undefined,'journal',(error as NodeJS.ErrnoException).code));this.emit('problem',String(error));});
             continue;
           }
@@ -361,7 +386,7 @@ export class BatchManager extends EventEmitter {
               }
               await this.commit(item,path.join(attempt,item.name));
             } catch(e) { if(s.version===2)item.stage='failed'; item.state='failed'; item.error=String(e);if(!item.failure){item.failure=describeFailure(String(e),item.source,'validation');this.log('image-validation-error',item.failure);} if(isJobFailure(e,item.failure.stage,(e as NodeJS.ErrnoException).code))this.stopForJobFailure(item.failure);else if(item.failure.stage==='validation'&&++this.validationFailures.output>=3)this.stopForJobFailure(describeFailure('Repeated output-image validation failures stopped the job.',undefined,'validation-global'));this.save(); }
-            if(s.version===2)fs.writeFileSync(path.join(attempt,index+'.final.ack'),'1');
+            if(s.version===2||needsPipeline(s.settings))fs.writeFileSync(path.join(attempt,index+'.final.ack'),'1');
           }).catch(e => {this.stopForJobFailure(describeFailure(String(e),undefined,'journal',(e as NodeJS.ErrnoException).code));this.emit('problem',String(e));});
         }
       });
@@ -380,6 +405,7 @@ export class BatchManager extends EventEmitter {
           const failures=s.items.filter(item=>item.failure);
           const failure=failures.length===1?failures[0].failure:undefined;
           if(failure&&stderrTail&&!failure.details.includes(stderrTail))failure.details=(failure.details+'\n'+stderrTail).slice(-6000);
+          this.requireStopped(s);
           if(this.control) {fs.rmSync(this.control,{recursive:true,force:true});this.control=undefined;s.attempt=undefined;}
           if(s.phase === 'cancelled') { this.removeSession(s); return; }
           // A per-file success event is emitted only after the encoder completes.
@@ -480,6 +506,7 @@ export class BatchManager extends EventEmitter {
         try{this.save();}catch(error){this.emit('problem','Cannot persist cancellation; stopping engine before cleanup: '+String(error));}
       }
       if(this.child) {
+        this.stopOwnedBridge();
         const ended=this.awaitSettled(10000);
         this.child.kill('SIGKILL');await ended;
       }
@@ -487,6 +514,13 @@ export class BatchManager extends EventEmitter {
       if(this.session?.phase==='cancelled')this.removeSession(this.session);
       if(!this.session)this.emit('state',null);
     } finally {this.cancelling=false;}
+  }
+  private stopOwnedBridge(){
+    const s=this.session;if(!s?.attempt)return;
+    const file=path.join(s.attempt,'bridge-owner.json');if(!fs.existsSync(file))return;
+    const owner=JSON.parse(fs.readFileSync(file,'utf8'));
+    if(typeof owner.control!=='string'||path.dirname(owner.control)!==s.attempt||!path.basename(owner.control).startsWith('.bridge-'))throw Error('Unsafe NCNN bridge owner record.');
+    if(ownsEngine(owner.pid,owner.control))try{process.kill(owner.pid,'SIGKILL');}catch(error){if((error as NodeJS.ErrnoException).code!=='ESRCH')throw error;}
   }
   private awaitSettled(timeoutMs:number) {
     return new Promise<void>((resolve,reject)=>{
@@ -513,7 +547,7 @@ export class BatchManager extends EventEmitter {
       this.pause();
       try {await this.awaitSettled(graceMs);} catch {
         this.log('shutdown-timeout',{graceMs});
-        if(this.child){const ended=this.awaitSettled(10000);this.child.kill('SIGKILL');await ended;}
+        if(this.child){this.stopOwnedBridge();const ended=this.awaitSettled(10000);this.child.kill('SIGKILL');await ended;}
       }
     }
     if(this.session&&!['completed','cancelled'].includes(this.session.phase)){this.session.shutdown='clean';this.save();}
@@ -523,6 +557,7 @@ export class BatchManager extends EventEmitter {
   }
   private requireStopped(s:Session) {
     if(s.pid && ownsEngine(s.pid,s.attempt || path.join(s.output,'.upscayl-session','work')))throw new Error('Previous engine process is still active; wait before recovery.');
+    if(s.attempt){const file=path.join(s.attempt,'bridge-owner.json');if(fs.existsSync(file)){const owner=JSON.parse(fs.readFileSync(file,'utf8'));if(typeof owner.control!=='string'||path.dirname(owner.control)!==s.attempt||!path.basename(owner.control).startsWith('.bridge-'))throw Error('Unsafe NCNN bridge owner record.');if(ownsEngine(owner.pid,owner.control))throw Error('The previous NCNN stage is still active; wait before recovery.');}}
   }
   private requireInferenceGate(engine:string) {
     if(!fs.readFileSync(engine).includes(Buffer.from('@JM3 GATE')))throw new Error('The recorded engine uses an older Pause protocol. Start From Beginning with jm.3; existing results and this record are preserved.');
@@ -549,6 +584,7 @@ export class BatchManager extends EventEmitter {
     this.removeSession(s);
   }
   private removeSession(s:Session) {
+    this.requireStopped(s);
     if(s.attempt && this.ownsWork(s.attempt,s)) fs.rmSync(s.attempt,{recursive:true,force:true});
     if(s.version===2)fs.rmSync(path.join(path.dirname(s.file),'intermediates'),{recursive:true,force:true});
     for(const suffix of ['', '.bak','.new','.bak.new']) {

@@ -1,3 +1,4 @@
+import {isPipelineModel} from '../../common/pipeline-models';
 import { verifiedOptionalModel } from '../jobs/model-files';
 import sharp from 'sharp';
 import { temporaryOutput,validateOutput,adoptOutput } from '../jobs/output';
@@ -14,7 +15,7 @@ import { getSingleImageArguments } from "../utils/get-arguments";
 import logit from "../utils/logit";
 import slash from "../utils/slash";
 import { spawnUpscayl } from "../utils/spawn-upscayl";
-import { parse } from "path";
+import { parse,dirname } from "path";
 import { getMainWindow } from "../main-window";
 import { ImageUpscaylPayload } from "../../common/types/types";
 import { ImageFormat } from "../types/types";
@@ -27,6 +28,7 @@ import { getPlatform } from "../utils/get-device-specs";
 import { copyMetadata } from "../utils/copy-metadata";
 
 const imageUpscayl = async (event, payload: ImageUpscaylPayload) => {
+  if(isPipelineModel(payload.model)){const source=decodePath(payload.imagePath);const {startBatch}=await import('../jobs/integration');return startBatch(event,{...payload,singleImage:source,batchFolderPath:dirname(source),outputPath:payload.outputPath||dirname(source)});}
   const mainWindow = getMainWindow();
 
   if (!mainWindow) {

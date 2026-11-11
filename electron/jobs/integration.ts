@@ -1,3 +1,4 @@
+import {needsPipeline} from '../../common/pipeline-models';
 import { app, ipcMain, BrowserWindow, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -30,10 +31,11 @@ export function batchManager(){
  }
  return manager;
 }
-function currentBatchEngine(){
+function currentNativeEngine(){
  return isDev?path.join(app.getAppPath(),'resources',process.platform==='win32'?'win':process.platform==='darwin'?'mac':'linux','bin',process.platform==='win32'?'upscayl-jm.exe':'upscayl-jm')
  :path.join(path.dirname(app.getAppPath()),'bin',process.platform==='win32'?'upscayl-jm.exe':'upscayl-jm');
 }
+function currentBatchEngine(settings:BatchUpscaylPayload){return needsPipeline(settings)?path.join(app.getAppPath(),'export/electron/jobs/onnx-worker.js'):currentNativeEngine();}
 const secondDirectory=(settings:BatchUpscaylPayload)=>settings.secondModel?modelDirectory({...settings,model:settings.secondModel}):undefined;
 const modelDirectory=(settings:BatchUpscaylPayload)=>settings.model in MODELS?modelsPath:savedCustomModelsPath||modelsPath;
 export function offerRecovery(source?:string,currentSettings?:BatchUpscaylPayload){
@@ -55,10 +57,10 @@ export function offerRecovery(source?:string,currentSettings?:BatchUpscaylPayloa
   lifecycle('recovery-action',{kind,id:session.id,choice});
   if(choice==='dismiss'){send(C.JOB_STATE,batchManager().snapshot());return;}
   try{
-   if(choice==='resume')await batchManager().restore(session.id,currentBatchEngine(),modelDirectory(session.settings),secondDirectory(session.settings));
+   if(choice==='resume')await batchManager().restore(session.id,currentBatchEngine(session.settings),modelDirectory(session.settings),secondDirectory(session.settings),needsPipeline(session.settings)?currentNativeEngine():undefined);
    else if(choice==='fresh'){
     if(!currentSettings)throw new Error('Select your current batch settings before starting fresh.');
-    await batchManager().restart(session.id,currentBatchEngine(),modelDirectory(currentSettings),currentSettings,secondDirectory(currentSettings));
+    await batchManager().restart(session.id,currentBatchEngine(currentSettings),modelDirectory(currentSettings),currentSettings,secondDirectory(currentSettings),needsPipeline(currentSettings)?currentNativeEngine():undefined);
    }
    await batchManager().whenStarted();
    lifecycle('recovery-started',{kind,id:session.id,choice});
@@ -68,10 +70,10 @@ export function offerRecovery(source?:string,currentSettings?:BatchUpscaylPayloa
 export async function startBatch(_event:any,payload:BatchUpscaylPayload){
  try{
   if(batchPrompts.current)return;
-  if(payload.singleImage)payload={...payload,batchFolderPath:path.dirname(path.resolve(payload.singleImage))};
+  if(payload.singleImage)payload={...payload,batchFolderPath:path.dirname(path.resolve(payload.singleImage)),outputPath:payload.outputPath||path.dirname(path.resolve(payload.singleImage))};
   if(batchManager().discover(payload.batchFolderPath,payload.singleImage).length){offerRecovery(payload.batchFolderPath,payload);if(batchPrompts.current)return;}
-  const engine=currentBatchEngine();if(!fs.existsSync(engine))throw new Error('Enhanced batch engine is missing.');
-  await batchManager().create(payload,modelDirectory(payload),engine,secondDirectory(payload));
+  const engine=currentBatchEngine(payload);if(!fs.existsSync(engine))throw new Error('Enhanced batch engine is missing.');
+  await batchManager().create(payload,modelDirectory(payload),engine,secondDirectory(payload),needsPipeline(payload)?currentNativeEngine():undefined);
  }catch(error){problem(error);send(C.JOB_STATE,batchManager().snapshot());}
 }
 export async function requestBatchStop():Promise<boolean>{

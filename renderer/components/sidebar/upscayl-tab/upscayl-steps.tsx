@@ -1,3 +1,6 @@
+import {isColorModel,isPipelineModel} from '@common/pipeline-models';
+import {colorStrengthAtom,colorStyleAtom,intermediateResizeAtom} from '@/atoms/color-settings-atom';
+import useJM6Labels from '@/components/hooks/use-jm6-labels';
 import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
 import { useTwoModelsAtom, secondModelAtom } from "@/atoms/two-stage-atom";
 import getModelScale from "@common/check-model-scale";
@@ -51,9 +54,12 @@ function UpscaylSteps({
   setDoubleUpscayl,
   dimensions,
 }: IProps) {
-  const labels=useTwoStageLabels();
+  const labels=useTwoStageLabels(),jm6=useJM6Labels();
+  const [strength,setStrength]=useAtom(colorStrengthAtom),[style,setStyle]=useAtom(colorStyleAtom),[intermediate,setIntermediate]=useAtom(intermediateResizeAtom);
   const [useTwo,setUseTwo]=useAtom(useTwoModelsAtom);
   const first=useAtomValue(selectedModelIdAtom),second=useAtomValue(secondModelAtom);
+  const color=isColorModel(first)||useTwo&&isColorModel(second),newFirst=isPipelineModel(first);
+  useEffect(()=>{if(newFirst)setDoubleUpscayl(false);},[newFirst,setDoubleUpscayl]);
   const [scale, setScale] = useAtom(scaleAtom);
   const [outputPath, setOutputPath] = useAtom(savedOutputPathAtom);
   const [progress, setProgress] = useAtom(progressAtom);
@@ -175,12 +181,14 @@ function UpscaylSteps({
           <SelectModelDialog target="second" disabled={!useTwo}/>
         </div>
         {useTwo&&second&&Number(getModelScale(first))*Number(getModelScale(second))>=16&&<p role="note" className="text-xs text-warning">{labels.large}</p>}
+        {useTwo&&second&&!isColorModel(first)&&!isColorModel(second)&&Number(getModelScale(second))>1&&<label className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2"><input aria-label={jm6.intermediate} type="checkbox" className="checkbox" checked={intermediate} onChange={e=>setIntermediate(e.target.checked)}/>{jm6.intermediate}</span>{intermediate&&<span className="text-xs text-warning">{jm6.intermediateNote}</span>}</label>}
+        {color&&<div className="flex flex-col gap-3 rounded-xl border border-base-content/15 p-3"><p className="text-sm font-semibold">{jm6.color}</p><label className="flex flex-col gap-1 text-sm">{jm6.style}<select aria-label={jm6.style} className="select select-bordered select-sm" value={style} onChange={e=>{const value=e.target.value as 'natural'|'vivid';setStyle(value);setStrength(value==='natural'?.35:.65);}}><option value="natural">{jm6.natural}</option><option value="vivid">{jm6.vivid}</option></select></label><label className="text-sm">{jm6.strength}: {Math.round(strength*100)}%<input aria-label={jm6.strength} className="range range-sm mt-2" type="range" min="0" max="100" value={Math.round(strength*100)} onChange={e=>setStrength(Number(e.target.value)/100)}/></label><p className="text-xs text-base-content/70">{jm6.colorNote}</p><p className="text-xs text-base-content/70">{!useTwo?jm6.nativeSize:isColorModel(second)?jm6.finalBeforeColor:''}</p></div>}
         {!batchMode && (
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
               className="checkbox"
-              checked={doubleUpscayl} disabled={useTwo}
+              checked={doubleUpscayl} disabled={useTwo||newFirst}
               onChange={(e) => {
                 if (e.target.checked) {
                   setDoubleUpscayl(true);
@@ -192,7 +200,7 @@ function UpscaylSteps({
             <p
               className="cursor-pointer text-sm"
               onClick={(e) => {
-                if(!useTwo)setDoubleUpscayl((prev) => !prev);
+                if(!useTwo&&!newFirst)setDoubleUpscayl((prev) => !prev);
               }}
             >
               {t("APP.DOUBLE_UPSCAYL.TITLE")}

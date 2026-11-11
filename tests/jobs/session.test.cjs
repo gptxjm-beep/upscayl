@@ -133,10 +133,10 @@ test('Cancel cannot race a new batch before the previous process has closed',asy
 for(const stage of ['waiting','inference','saving','committing','adopted'])test(`host killed during ${stage}: recovery reconciles only proven outputs`,async t=>{
  const f=await fixture(t,12),signal=path.join(f.root,'checkpoint.json'),config=path.join(f.root,'host.json');
  fs.writeFileSync(config,JSON.stringify({stage,signal,registry:f.registry,settings:f.settings,models:f.models,engine:fake}));
- const host=spawn(process.execPath,[path.join(__dirname,'crash-host.cjs'),config],{stdio:'ignore'});
+ const host=spawn(process.execPath,[path.join(__dirname,'crash-host.cjs'),config],{stdio:['ignore','ignore','pipe']});let diagnostics='';host.stderr.on('data',data=>{diagnostics=(diagnostics+data).slice(-4000);});
  t.after(()=>{if(host.exitCode===null)host.kill('SIGKILL');});
  const deadline=Date.now()+30000;
- while(!fs.existsSync(signal)){assert(Date.now()<deadline,'Host did not reach checkpoint');await delay(10);}
+ while(!fs.existsSync(signal)){assert.equal(host.exitCode,null,'Crash fixture exited before checkpoint: '+diagnostics);assert(Date.now()<deadline,'Host did not reach checkpoint: '+diagnostics);await delay(10);}
  const evidence=JSON.parse(fs.readFileSync(signal,'utf8'));
  const exited=new Promise(resolve=>host.once('close',resolve));host.kill('SIGKILL');await exited;
  const {ownsEngine}=require('../../export/electron/jobs/process-owner.js');

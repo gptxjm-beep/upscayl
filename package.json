@@ -246,6 +246,7 @@
     "gray-matter": "^4.0.3",
     "jotai": "^2.11.0",
     "lucide-react": "^0.469.0",
+    "onnxruntime-node": "1.31.1",
     "posthog-js": "^1.203.2",
     "react-compare-slider": "^3.1.0",
     "react-markdown": "^9.0.1",

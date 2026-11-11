@@ -2,7 +2,7 @@
 const fs=require('fs'),{spawn}=require('child_process');
 const {BatchManager}=require('../../export/electron/jobs/manager.js');
 const cfg=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
-const manager=new BatchManager(cfg.registry,undefined,(_exe,args)=>spawn(process.execPath,[cfg.engine,...args],{env:{...process.env,JM_TEST_LEASE_MS:'500'}}));
+const manager=new BatchManager(cfg.registry,undefined,(_exe,args)=>spawn(process.execPath,[cfg.engine,...args],{env:{...process.env,JM_TEST_LEASE_MS:'3000'}}));
 let signalled=false;
 function stopAt(stage) {
  if(signalled||stage!==cfg.stage)return;signalled=true;

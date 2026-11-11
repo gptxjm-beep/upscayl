@@ -1,3 +1,5 @@
+import {isColorModel,needsPipeline} from '@common/pipeline-models';
+import {colorStrengthAtom,colorStyleAtom,intermediateResizeAtom} from '@/atoms/color-settings-atom';
 "use client";
 import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
 
@@ -101,6 +103,9 @@ const Sidebar = ({
 
   const labels=useTwoStageLabels();
   const useTwo=useAtomValue(useTwoModelsAtom),second=useAtomValue(secondModelAtom);
+  const colorStrength=useAtomValue(colorStrengthAtom),colorStyle=useAtomValue(colorStyleAtom),intermediate=useAtomValue(intermediateResizeAtom);
+  const useIntermediate=useTwo&&intermediate&&!isColorModel(selectedModelId)&&!isColorModel(second);
+  const pipeline=needsPipeline({model:selectedModelId,useTwoModels:useTwo,secondModel:second,intermediateResize:useIntermediate});
   const upscaylHandler = async () => {
     if(useTwo&&!second){toast({description:labels.second});return;}
     logit("🔄 Resetting Upscaled Image Path");
@@ -109,7 +114,7 @@ const Sidebar = ({
     if (imagePath !== "" || batchFolderPath !== "") {
       setProgress(t("APP.PROGRESS.WAIT_TITLE"));
       // Double Upscayl
-      if (doubleUpscayl && !useTwo) {
+      if (doubleUpscayl && !useTwo && !pipeline) {
         window.electron.send<DoubleUpscaylPayload>(
           ELECTRON_COMMANDS.DOUBLE_UPSCAYL,
           {
@@ -136,14 +141,17 @@ const Sidebar = ({
           imageUpscayls: prev.imageUpscayls + 1,
         }));
         logit("🏁 DOUBLE_UPSCAYL");
-      } else if (batchMode || useTwo) {
+      } else if (batchMode || useTwo || pipeline) {
         // Batch Upscayl
         setDoubleUpscayl(false);
         window.electron.send<BatchUpscaylPayload>(
           ELECTRON_COMMANDS.FOLDER_UPSCAYL,
           {
             batchFolderPath,
-            ...(useTwo?{useTwoModels:true,secondModel:second,...(!batchMode?{singleImage:imagePath}:{})}:{}),
+            ...(useTwo?{useTwoModels:true,secondModel:second}:{}),
+            ...(!batchMode&&(useTwo||pipeline)?{singleImage:imagePath}:{}),
+            ...((isColorModel(selectedModelId)||useTwo&&isColorModel(second))?{colorStrength,colorStyle}:{}),
+            ...(useIntermediate?{intermediateResize:true}:{}),
             outputPath,
             model: selectedModelId,
             gpuId: gpuId.length === 0 ? null : gpuId,

@@ -1,7 +1,11 @@
 "use client";
+import {isColorModel,PIPELINE_MODELS} from '@common/pipeline-models';
+import {scaleAtom,useCustomWidthAtom} from '@/atoms/user-settings-atom';
+import {useSetAtom} from 'jotai';
+import useJM6Labels from '@/components/hooks/use-jm6-labels';
 import useTwoStageLabels from "@/components/hooks/use-two-stage-labels";
 
-import { modelDisplayName } from "@common/model-metadata";
+import { modelMetadata, modelDisplayName } from "@common/model-metadata";
 
 import { secondModelAtom } from "@/atoms/two-stage-atom";
 import React, { useState } from "react";
@@ -23,7 +27,8 @@ import useTranslation from "@/components/hooks/use-translation";
 import posthog from "posthog-js";
 
 const SelectModelDialog = ({target="first",disabled=false}:{target?:"first"|"second";disabled?:boolean}) => {
-  const labels=useTwoStageLabels();
+  const labels=useTwoStageLabels(),jm6=useJM6Labels();
+  const setScale=useSetAtom(scaleAtom),setCustomWidth=useSetAtom(useCustomWidthAtom);
   const t = useTranslation();
   const [first,setFirst] = useAtom(selectedModelIdAtom);
   const [second,setSecond] = useAtom(secondModelAtom);
@@ -34,7 +39,10 @@ const SelectModelDialog = ({target="first",disabled=false}:{target?:"first"|"sec
   const [open, setOpen] = useState(false);
   const [zoomedModel, setZoomedModel] = useState<ModelId | null>(null);
 
+  const groups:[string,string[]][]=[[jm6.upscaleGroup,customModelIds.filter(id=>PIPELINE_MODELS[id]?.task==='upscale')],[jm6.colorGroup,customModelIds.filter(isColorModel)],[jm6.legacyGroup,customModelIds.filter(id=>!PIPELINE_MODELS[id])]];
+
   const handleModelSelect = (model: ModelId | string) => {
+    if(target==='first'&&isColorModel(model)&&!isColorModel(selectedModelId)){setScale('1');setCustomWidth(false);}
     setSelectedModelId(model);
     setOpen(false);
 
@@ -54,20 +62,22 @@ const SelectModelDialog = ({target="first",disabled=false}:{target?:"first"|"sec
     <div className="flex flex-col gap-4">
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <button disabled={disabled} aria-label={target==="second"?labels.second:labels.first} className="btn btn-primary justify-start border-border">
-            <SwatchBookIcon className="mr-2 h-5 w-5" />
+          <button disabled={disabled} aria-label={target==="second"?labels.second:labels.first} className="btn btn-primary h-12 min-h-12 max-h-12 w-full min-w-0 flex-nowrap justify-start overflow-hidden border-border">
+            <SwatchBookIcon className="mr-2 h-5 w-5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-start" title={selectedModelId?(modelMetadata(selectedModelId)?.fullName||modelDisplayName(selectedModelId)):labels.second}>
             {selectedModelId in MODELS
               ? t(
                   `APP.MODEL_SELECTION.MODELS.${MODELS[selectedModelId]?.id}.NAME` as any,
                 )
               : selectedModelId?modelDisplayName(selectedModelId):labels.second}
+            </span>
           </button>
         </DialogTrigger>
         <DialogContent className="z-50 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("APP.MODEL_SELECTION.DESCRIPTION")}</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[600px] pr-4">
+          <ScrollArea className="max-h-[min(600px,65vh)] pr-4">
             <div className="flex flex-col gap-4">
               {Object.entries(MODELS).map((modelData) => {
                 const modelId = modelData[0] as ModelId;
@@ -126,17 +136,7 @@ const SelectModelDialog = ({target="first",disabled=false}:{target?:"first"|"sec
                   {t("APP.MODEL_SELECTION.IMPORTED_CUSTOM_MODELS")}
                 </p>
               )}
-              {customModelIds.map((customModel) => {
-                return (
-                  <button
-                    key={modelDisplayName(customModel)}
-                    className="btn h-auto w-full flex-col items-start p-4"
-                    onClick={() => handleModelSelect(customModel)}
-                  >
-                    {modelDisplayName(customModel)}
-                  </button>
-                );
-              })}
+              {groups.map(([group,ids])=>ids.length>0&&<React.Fragment key={group}><p className="text-sm font-semibold text-base-content/70">{group}</p>{ids.map(customModel=><button key={customModel} title={modelMetadata(customModel)?.fullName||modelDisplayName(customModel)} className="btn h-12 min-h-12 max-h-12 w-full min-w-0 flex-nowrap justify-start overflow-hidden px-4" onClick={()=>handleModelSelect(customModel)}><span className="min-w-0 truncate">{modelDisplayName(customModel)}</span></button>)}</React.Fragment>)}
             </div>
           </ScrollArea>
         </DialogContent>

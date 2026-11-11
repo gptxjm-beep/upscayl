@@ -10,7 +10,7 @@ function trim(file:string){
 // Owned log files only; snapshots, outputs and unrelated Electron logs are never pruned.
 export function writeBatchEvent(directory:string,job:string|undefined,kind:string,data:unknown){
  fs.mkdirSync(directory,{recursive:true});
- const critical=!!job&&/^(image|image-validation-error|image-preflight|job-failure|engine-error|preflight-error)$/.test(kind);
+ const critical=!!job&&/^(image|image-validation-error|checkpoint-validation-error|image-preflight|job-failure|engine-error|preflight-error)$/.test(kind);
  const file=path.join(directory,job?'batch-'+job+'.log':'batch-events.log'),fresh=!fs.existsSync(file);
  let event={at:new Date().toISOString(),job,kind,data};
  let line=JSON.stringify(event,(_key,value)=>typeof value==='string'?value.slice(0,6000):value)+'\n';

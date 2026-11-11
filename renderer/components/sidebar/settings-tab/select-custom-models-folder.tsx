@@ -29,6 +29,7 @@ export function CustomModelsFolderSelect({
       </p>
       <p className="text-sm text-base-content/60">{customModelsPath}</p>
       <button
+        data-model-folder-select
         className="btn btn-primary"
         onClick={async () => {
           const customModelPath = await window.electron.invoke(
@@ -41,8 +42,6 @@ export function CustomModelsFolderSelect({
               ELECTRON_COMMANDS.GET_MODELS_LIST,
               customModelPath,
             );
-          } else {
-            setCustomModelsPath("");
           }
         }}
       >

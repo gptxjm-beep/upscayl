@@ -38,6 +38,9 @@ export type DoubleUpscaylPayload = {
 
 export type BatchUpscaylPayload = {
   useTwoModels?: boolean;
+  colorStrength?: number;
+  colorStyle?: "natural" | "vivid";
+  intermediateResize?: boolean;
   secondModel?: string;
   singleImage?: string;
   batchFolderPath: string;

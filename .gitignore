@@ -62,3 +62,7 @@ dockerfile
 /renderer/tsconfig.tsbuildinfo
 
 /.test-artifacts/
+
+# Python conversion caches
+/tools/models/__pycache__/
+/tools/models/reference/**/__pycache__/

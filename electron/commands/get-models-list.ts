@@ -12,10 +12,11 @@ const getModelsList = async (event, payload) => {
 
   if (!mainWindow) return;
   if (payload) {
-    setSavedCustomModelsPath(payload);
+    if(typeof payload!=='string')return;
 
     logit("📁 Custom Models Folder Path: ", savedCustomModelsPath);
     const models = await getModels(payload);
+    if(models.length)setSavedCustomModelsPath(payload);
 
     mainWindow.webContents.send(
       ELECTRON_COMMANDS.CUSTOM_MODEL_FILES_LIST,
