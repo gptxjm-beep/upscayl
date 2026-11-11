@@ -136,6 +136,7 @@ jobs:
           path: |
             .test-artifacts/jm6/**/*.json
             .test-artifacts/jm6/**/*.png
+            .test-artifacts/jm6/**/*.log
             .test-artifacts/ci/
             docs/jm6/
           if-no-files-found: ignore

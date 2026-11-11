@@ -1,0 +1,6 @@
+# Reviewed reference code and notices are checksum-pinned as original bytes.
+# Windows checkout must not convert their line endings.
+/tools/models/reference/** -text
+/tools/models/licenses/** -text
+/resources/licenses/** -text
+/tests/fixtures/** -text
