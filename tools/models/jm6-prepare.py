@@ -10,7 +10,7 @@ import onnx
 from onnx import numpy_helper
 from PIL import Image
 ROOT=Path(__file__).resolve().parents[2]
-CATALOG=json.loads((ROOT/'common/pipeline-models.json').read_text())
+CATALOG=json.loads((ROOT/'common/pipeline-models.json').read_text(encoding='utf-8'))
 ARCHIVES={
  'IllustrationJaNai_V3detail.zip':'27749962bc934779f867730cdb10617e3d7475313f920a7a966c56b75dbdbeda',
  'IllustrationJaNai_V3denoise.zip':'6c26828ad8e142c9e9c7181451257f3f56a0f5c7f897d9c7878ce898404f53e5',
@@ -140,16 +140,16 @@ def main():
  if luts is not None:files['luts']={'name':id+'.luts.f32','sha256':sha(dest/(id+'.luts.f32'))}
  license_name='FDAT-CC-BY-NC-4.0.txt' if 'fdat-xl' in id else 'Alchemy-LICENSE.md' if id=='4x-alchemy' else 'Adaptive-3DLUT-Apache-2.0.txt'
  license_file=dest/(id+'.LICENSE.txt');license_file.write_bytes((ROOT/'tools/models/licenses'/license_name).read_bytes());files['license']={'name':license_file.name,'sha256':sha(license_file)}
- attribution=dest/(id+'.ATTRIBUTION.txt');attribution.write_text(meta['fullName']+'\nAuthor: '+meta['author']+'\nSource: '+meta['source']+'\nLicense: '+meta['license']+'\nOriginal SHA-256: '+meta['sourceSha256']+'\nChanges: '+transformation+'\n');files['attribution']={'name':attribution.name,'sha256':sha(attribution)}
+ attribution=dest/(id+'.ATTRIBUTION.txt');attribution.write_text(meta['fullName']+'\nAuthor: '+meta['author']+'\nSource: '+meta['source']+'\nLicense: '+meta['license']+'\nOriginal SHA-256: '+meta['sourceSha256']+'\nChanges: '+transformation+'\n',encoding='utf-8');files['attribution']={'name':attribution.name,'sha256':sha(attribution)}
  manifest={'version':2,'id':id,'modelVersion':meta['version'],'engine':'onnx','task':meta['task'],'nativeScale':meta['nativeScale'],'inputMultiple':meta['inputMultiple'],'sourceSha256':meta['sourceSha256'],'license':meta['license'],'licenseAccepted':True,'files':files,'input':inp,'output':out,'transformation':transformation,'validation':{'pipeline':'jm6-onnx-v1','passed':False,'images':3,'provider':'cpu','cases':[]}}
  if luts is not None:manifest['lutSize']=33
- (work/'draft.json').write_text(json.dumps({'manifest':manifest,'metadata':meta},indent=2))
+ (work/'draft.json').write_text(json.dumps({'manifest':manifest,'metadata':meta},indent=2),encoding='utf-8')
  cases=[]
  for i,(w,h,tile) in enumerate([(32,32,64),(35,33,32),(12,97,64)]):
   if luts is not None and i==2:h=70200
   rgb=input_image(i,w,h);source=work/f'input-{i}.png';expected=work/f'expected-{i}.png';Image.fromarray(rgb).save(source);strength=.35 if i!=1 else .65;style='natural' if i!=1 else 'vivid'
   if luts is None:result=reference_upscale(model,rgb,tile,meta['inputMultiple'],meta['minimum'],meta['halo'],meta['nativeScale'])
-  else:result,weights=reference_lut(model,luts,rgb,strength,style);(work/f'weights-{i}.json').write_text(json.dumps(weights.tolist()))
+  else:result,weights=reference_lut(model,luts,rgb,strength,style);(work/f'weights-{i}.json').write_text(json.dumps(weights.tolist()),encoding='utf-8')
   Image.fromarray(result).save(expected);cases.append({'source':str(source),'expected':str(expected),'width':w,'height':h,'tile':tile,'strength':strength,'style':style});print('Reference image',id,i,w,h,flush=True)
- (work/'cases.json').write_text(json.dumps(cases,indent=2));subprocess.run(['node',str(ROOT/'tools/models/jm6-validate.cjs'),str(work)],check=True,cwd=ROOT,timeout=900)
+ (work/'cases.json').write_text(json.dumps(cases,indent=2),encoding='utf-8');subprocess.run(['node',str(ROOT/'tools/models/jm6-validate.cjs'),str(work)],check=True,cwd=ROOT,timeout=900)
 if __name__=='__main__':main()

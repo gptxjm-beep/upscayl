@@ -82,10 +82,29 @@ if(!read('export/electron/index.js').includes('integration_1.startBatch'))throw 
 '''
     subprocess.run(['node', '-e', script, str(archive)], cwd=ROOT, check=True)
     # Startup smoke for the native CLI only. -h does not initialize Vulkan or run inference.
+    assert not (folder/'resources/bin/vulkan-1.dll').exists(), 'Test Vulkan loader must never enter the delivery payload'
     help_result = subprocess.run([str(engine), '-h'], capture_output=True, timeout=30)
-    assert b'Usage:' in help_result.stdout + help_result.stderr, 'Native Windows engine could not start'
+    direct_exit=help_result.returncode
+    native_environment='system-Vulkan-loader'
+    if direct_exit & 0xffffffff == 0xc0000135:
+        # The reused engine imports vulkan-1.dll. Earlier CI installed the SDK,
+        # so its PATH supplied that dependency even for -h. A headless runner
+        # has no display-driver Vulkan loader. Test identical engine bytes in
+        # a private copy, just like the actual native functional suite. Never
+        # add this software ICD alias to the installer/portable payload.
+        assert os.environ.get('GITHUB_ACTIONS')=='true', 'Missing native dependency outside the disposable CI runner'
+        with tempfile.TemporaryDirectory(prefix='jm6-native-help-') as tmp:
+            private=Path(tmp)
+            for original in (folder/'resources/bin').iterdir():
+                if original.name==engine.name or original.suffix.lower()=='.dll':shutil.copy2(original,private/original.name)
+            shutil.copy2(ROOT/'node_modules/electron/dist/vk_swiftshader.dll',private/'vulkan-1.dll')
+            assert sha(private/engine.name)==engine_hash
+            help_result=subprocess.run([str(private/engine.name),'-h'],capture_output=True,timeout=30)
+        native_environment='CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver'
+    assert b'Usage:' in help_result.stdout + help_result.stderr, f'Native Windows engine could not start: direct=0x{direct_exit & 0xffffffff:08x}, tested=0x{help_result.returncode & 0xffffffff:08x}, stderr={help_result.stderr[-1000:]!r}'
     return {'engine_sha256': sha(engine), 'app_exe_sha256': sha(app_exe),
-            'asar_sha256': sha(archive), 'onnx_runtime_x64_sha256':runtime_hashes, 'model_files_verified': 14, 'native_help_exit': help_result.returncode}
+            'asar_sha256': sha(archive), 'onnx_runtime_x64_sha256':runtime_hashes, 'model_files_verified': 14, 'native_help_exit': help_result.returncode,
+            'native_direct_help_exit_hex':f'0x{direct_exit & 0xffffffff:08x}', 'native_help_environment':native_environment}
 
 
 def main():
