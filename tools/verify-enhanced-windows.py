@@ -50,6 +50,17 @@ def verify_tree(folder, engine_hash):
         assert sha(folder / 'resources/bin' / original.name) == sha(original), 'Missing runtime DLL'
     for name in ['libpng.txt','zlib.txt']:
         assert sha(folder/'resources/licenses'/name)==sha(ROOT/'resources/licenses'/name), 'Missing codec license'
+    native = folder/'resources/app.asar.unpacked/node_modules/onnxruntime-node/bin/napi-v6/win32/x64'
+    runtime_hashes = {}
+    for name in ['onnxruntime_binding.node','onnxruntime.dll','DirectML.dll','dxcompiler.dll']:
+        original = ROOT/'node_modules/onnxruntime-node/bin/napi-v6/win32/x64'/name
+        packed = native/name
+        assert packed.is_file() and sha(packed)==sha(original), 'ONNX/DML binary absent or changed: '+name
+        pe_x64(packed)
+        runtime_hashes[name]=sha(packed)
+    assert not (native.parent/'arm64').exists(), 'Unexpected ARM64 inference payload'
+    for name in ['ONNX-Runtime-MIT.txt','ONNX-Runtime-ThirdPartyNotices.txt','DirectML-1.15.4.txt','DirectXShaderCompiler-LICENSE.txt','JM6-runtime-sources.json']:
+        assert sha(folder/'resources/licenses'/name)==sha(ROOT/'resources/licenses'/name)
     archive = folder / 'resources/app.asar'
     # Test compiled routing/identity in the archive that will actually be delivered.
     script = r'''
@@ -58,7 +69,8 @@ const path=require('path');
 const file=process.argv[1];
 const read=n=>asar.extractFile(file,path.normalize(n)).toString();
 const pkg=JSON.parse(read('package.json'));
-if(pkg.version!=='2.15.0-jm.5'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(pkg.version!=='2.15.0-jm.6-dev.1'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(!read('export/electron/jobs/onnx-worker.js').includes('PipelineRuntime'))throw Error('ONNX worker missing');
 if(!read('export/electron/jobs/integration.js').includes('upscayl-jm.exe'))throw Error('Wrong engine route');
 if(!read('export/electron/jobs/manager.js').includes('completed-with-errors'))throw Error('Image error completion handling absent');
 if(!read('export/electron/jobs/report.js').includes('upscayl_batch_report'))throw Error('Error reporter absent');
@@ -73,7 +85,7 @@ if(!read('export/electron/index.js').includes('integration_1.startBatch'))throw 
     help_result = subprocess.run([str(engine), '-h'], capture_output=True, timeout=30)
     assert b'Usage:' in help_result.stdout + help_result.stderr, 'Native Windows engine could not start'
     return {'engine_sha256': sha(engine), 'app_exe_sha256': sha(app_exe),
-            'asar_sha256': sha(archive), 'model_files_verified': 14, 'native_help_exit': help_result.returncode}
+            'asar_sha256': sha(archive), 'onnx_runtime_x64_sha256':runtime_hashes, 'model_files_verified': 14, 'native_help_exit': help_result.returncode}
 
 
 def main():
@@ -98,7 +110,7 @@ def main():
         subprocess.run([seven, 'x', str(archives[0]), '-o' + str(unpacked), '-y', '-bb0'], check=True)
         installer_check = verify_tree(unpacked, engine_hash)
         assert portable_check['asar_sha256'] == installer_check['asar_sha256'], 'Installer/ZIP app differs'
-    manifest = {'version': '2.15.0-jm.5', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    manifest = {'version': '2.15.0-jm.6-dev.1', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                 'portable_payload': portable_check, 'installer_payload': installer_check,
                 'gpu_inference_tested': False,
                 'files': [{'name':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in installers + portable]}
@@ -118,7 +130,7 @@ def main():
     print(json.dumps(manifest,indent=2))
     # Public annotation permits inspecting delivery hashes when authenticated
     # Actions log/artifact APIs are unavailable in the review environment.
-    print('::notice title=Verified jm.5 delivery::'+json.dumps(manifest,separators=(',',':')))
+    print('::notice title=Verified JM6 preview delivery::'+json.dumps(manifest,separators=(',',':')))
 
 
 if __name__ == '__main__':

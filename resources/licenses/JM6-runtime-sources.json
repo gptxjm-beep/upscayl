@@ -1,0 +1,22 @@
+{
+  "onnxruntime": "1.31.1",
+  "directmlDllVersion": "1.15.4+241025-1615.1.dml-1.15.fac7597",
+  "sources": {
+    "ONNX-Runtime-MIT.txt": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.31.1/LICENSE",
+    "ONNX-Runtime-ThirdPartyNotices.txt": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.31.1/ThirdPartyNotices.txt",
+    "DirectML-1.15.4.txt": "https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4/License",
+    "DirectXShaderCompiler-LICENSE.txt": "https://raw.githubusercontent.com/microsoft/DirectXShaderCompiler/main/LICENSE.TXT"
+  },
+  "noticeSha256": {
+    "ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    "ONNX-Runtime-ThirdPartyNotices.txt": "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3",
+    "DirectML-1.15.4.txt": "f8a92bb992400b1da28952fab8262e043f8104a99f0b9eab4c77abb470b01fb9",
+    "DirectXShaderCompiler-LICENSE.txt": "27a49e35d1da96eba18fba54bc882667ff0ff8c0254f16f2b6e165d605ba7df8"
+  },
+  "windowsX64Files": {
+    "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72",
+    "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+    "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+    "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d"
+  }
+}

@@ -1,0 +1,141 @@
+name: JM6 Windows preview and verified available models
+on:
+  push:
+    branches: [feature/jm6-models-color-recovery]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: jm6-windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      NEXT_TELEMETRY_DISABLED: '1'
+      JM6_PROVIDER: cpu
+      JM6_MODELS_DIR: .test-artifacts/jm6/models
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.5'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exact application dependencies without optional CUDA download
+        run: python tools/ci-command.py --label npm-ci -- npm ci --onnxruntime-node-install=skip
+      - name: Fetch verified JM5 engine (exact unchanged native source only)
+        uses: actions/download-artifact@v4
+        with:
+          name: Upscayl-Enhanced-2.15.0-jm.5-Portable-x64
+          run-id: 42980218956
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/jm5-portable
+      - name: Verify archive, engine and native source fingerprints
+        shell: pwsh
+        run: python tools/reuse-jm5-engine.py "$env:RUNNER_TEMP/jm5-portable"
+      - name: Compile application TypeScript
+        run: python tools/ci-command.py --label TypeScript -- npm run tsc
+      - name: Test sessions, output adoption, recovery, model discovery and tiling
+        run: python tools/ci-command.py --label core-regression --timeout-seconds 300 -- node --test --test-concurrency=1 tests/jobs/session.test.cjs tests/jobs/asar-path.test.cjs tests/jobs/recovery-ux.test.cjs tests/jobs/recovery-integrity.test.cjs tests/jobs/output.test.cjs tests/jobs/single-output.test.cjs tests/jobs/open-image.test.cjs tests/jobs/model-metadata.test.cjs tests/jobs/image-errors.test.cjs tests/jobs/model-discovery.test.cjs tests/jobs/jm6-tiling.test.cjs
+      - name: Test unchanged NCNN two-stage path with 50 images and recovery
+        run: python tools/ci-command.py --label native-50 --timeout-seconds 900 -- node --test tests/jobs/two-stage-native.cjs
+      - name: Install pinned CPU reference dependencies
+        run: |
+          python -m pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r tools/models/requirements-jm6.txt
+      - name: Cache only checksum-pinned original model inputs
+        uses: actions/cache@v4
+        with:
+          path: .test-artifacts/jm6/source-cache
+          key: jm6-official-sources-${{ hashFiles('tools/models/jm6-download.py') }}
+      - name: Download and verify available official model inputs
+        run: python tools/ci-command.py --label official-models --timeout-seconds 900 -- python tools/models/jm6-download.py --cache .test-artifacts/jm6/source-cache
+      - name: Convert and compare four available models against original weights (3 images each)
+        shell: pwsh
+        run: |
+          foreach ($id in @('4x-illustrationjanai-v3detail-fdat-xl','4x-illustrationjanai-v3denoise-fdat-xl','4x-alchemy','adaptive-3d-lut-srgb')) {
+            python tools/ci-command.py --label $id --timeout-seconds 1200 -- python tools/models/jm6-prepare.py --id $id --cache .test-artifacts/jm6/source-cache --destination .test-artifacts/jm6/models --accept-model-license
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Test actual ONNX image failures, memory stop, pause and recovery (50-image stability)
+        run: python tools/ci-command.py --label onnx-recovery --timeout-seconds 600 -- node --test tests/jobs/jm6-pipeline.test.cjs
+      - name: Test selected ordered model pairs (5 images per pair)
+        run: python tools/ci-command.py --label ordered-pairs --timeout-seconds 600 -- node tests/jobs/jm6-ordered-pairs.cjs
+      - name: Build renderer
+        run: python tools/ci-command.py --label renderer -- npm run build
+      - name: Test UI, recovery notices, error completion and model-folder persistence
+        shell: pwsh
+        run: |
+          foreach ($test in @('ui.smoke.cjs','recovery-dialogs.cjs','two-stage-ui.cjs','completion-ui.cjs','recovery-issues-ui.cjs','jm6-models-ui.cjs')) {
+            python tools/ci-command.py --label $test --timeout-seconds 180 -- node "tests/jobs/$test"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Package Windows preview (no official release)
+        run: python tools/ci-command.py --label packaging -- npx electron-builder --win --x64 --config tools/enhanced-builder.cjs --publish never
+      - name: Verify EXE and ZIP payloads, native engine, ONNX/DirectML DLLs and SHA-256
+        run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
+      - name: Fetch previously reference-tested JM5 optional models
+        uses: actions/download-artifact@v4
+        with:
+          name: jm5-Optional-Model-Compatibility
+          run-id: 42980218956
+          github-token: ${{ github.token }}
+          path: .test-artifacts/jm5-verified
+      - name: Package clean models folder with four new and three preserved models
+        shell: pwsh
+        run: |
+          $manifest = @(Get-ChildItem '.test-artifacts/jm5-verified' -Recurse -Filter '1x-manhwa-null.model.json')
+          if ($manifest.Count -ne 1) { throw 'Expected one previously verified Manhwa model manifest' }
+          node tools/models/jm6-package.cjs .test-artifacts/jm6/models $manifest[0].Directory.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Clean ZIP extraction, real packaged inference and model-folder restart
+        run: python tools/ci-command.py --label packaged-models --timeout-seconds 1200 -- node tests/jobs/jm6-packaged-models.cjs
+      - name: Generate controlled long PNG for packaged drag-and-drop
+        run: node -e "require('sharp')({create:{width:1440,height:70200,channels:3,background:'white'},limitInputPixels:false}).png().toFile('.test-artifacts/jm6/long.png')"
+      - name: Test packaged drag-and-drop and long PNG preview
+        shell: pwsh
+        run: |
+          $env:UPSCAYL_TEST_APP_EXE = (Resolve-Path 'dist-enhanced/win-unpacked/Upscayl Enhanced.exe').Path
+          $env:UPSCAYL_TEST_LONG_PNG = (Resolve-Path '.test-artifacts/jm6/long.png').Path
+          python tools/ci-command.py --label packaged-drop --timeout-seconds 180 -- node tests/jobs/drop-ui.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JM6-preview-Installer-x64
+          path: |
+            dist-enhanced/*.exe
+            dist-enhanced/SHA256.txt
+            dist-enhanced/delivery-manifest.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JM6-preview-Portable-x64
+          path: |
+            dist-enhanced/*-x64.zip
+            dist-enhanced/SHA256.txt
+            dist-enhanced/delivery-manifest.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JM6-Available-Models
+          path: |
+            dist-enhanced/Upscayl-Enhanced-jm6-Available-Models.zip
+            dist-enhanced/models-SHA256.txt
+            dist-enhanced/model-package-manifest.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JM6-test-diagnostics
+          include-hidden-files: true
+          path: |
+            .test-artifacts/jm6/**/*.json
+            .test-artifacts/jm6/**/*.png
+            .test-artifacts/ci/
+            docs/jm6/
+          if-no-files-found: ignore

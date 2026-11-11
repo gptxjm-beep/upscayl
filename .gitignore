@@ -66,3 +66,5 @@ dockerfile
 # Python conversion caches
 /tools/models/__pycache__/
 /tools/models/reference/**/__pycache__/
+
+/tools/__pycache__/

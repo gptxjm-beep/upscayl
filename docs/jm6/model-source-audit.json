@@ -1,5 +1,5 @@
 {
-  "scope": "Work in progress; no model readiness claims.",
+  "scope": "JM6 available-model CPU functional validation. Windows preview acceptance pending; real NVIDIA GPU/DirectML untested.",
   "models": [
     {
       "id": "4x-illustrationjanai-v3detail-fdat-xl",
@@ -9,7 +9,89 @@
       "license": "CC-BY-NC-4.0",
       "originalWeightsSha256": "fbafec1f5a126c251de8a21e177e5a710ba2e75c7fd88fe989eb8df0508790c9",
       "originalGraphOrLutSha256": "2977da028b27424a17a9b3bfbd732033e9e02062d6849280fa67f334985e1245",
-      "status": "BF16 CPU load failed. FP32 promotion ran one 32x32 to 128x128 tensor. Reference comparison/integration pending."
+      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "engineLoaded": true,
+      "actualInference": true,
+      "standalone": true,
+      "modelFilesPrepared": true,
+      "windowsValidated": false,
+      "realNvidiaTested": false,
+      "derivedFiles": {
+        "model": {
+          "name": "4x-illustrationjanai-v3detail-fdat-xl.onnx",
+          "sha256": "79539970414475953946fc58e474f5ac94200391fa7a387d4a2b55ecd1e67a5b"
+        },
+        "license": {
+          "name": "4x-illustrationjanai-v3detail-fdat-xl.LICENSE.txt",
+          "sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0"
+        },
+        "attribution": {
+          "name": "4x-illustrationjanai-v3detail-fdat-xl.ATTRIBUTION.txt",
+          "sha256": "3c27762317102b63f03680d51d38da03cecb89c0b53504313161239714b7a821"
+        }
+      },
+      "validation": {
+        "pipeline": "jm6-onnx-v1",
+        "passed": true,
+        "images": 3,
+        "provider": "cpu",
+        "runtime": "1.31.1",
+        "scope": "Three varied derivatives of bundled comparison samples; not real-page quality or GPU performance. LUT includes a narrow 12x70200 PNG.",
+        "cases": [
+          {
+            "input": [
+              32,
+              32
+            ],
+            "output": [
+              128,
+              128
+            ],
+            "tile": 64,
+            "maxAbs": 1,
+            "mae": 0.15875244140625,
+            "psnrDb": 56.12359947967774,
+            "durationMs": 3415.846384,
+            "passed": true
+          },
+          {
+            "input": [
+              35,
+              33
+            ],
+            "output": [
+              140,
+              132
+            ],
+            "tile": 32,
+            "maxAbs": 1,
+            "mae": 0.07014790764790765,
+            "psnrDb": 59.670656393242005,
+            "durationMs": 5576.243296,
+            "passed": true
+          },
+          {
+            "input": [
+              12,
+              97
+            ],
+            "output": [
+              48,
+              388
+            ],
+            "tile": 64,
+            "maxAbs": 1,
+            "mae": 0.14456257159221078,
+            "psnrDb": 56.53024495676039,
+            "durationMs": 4678.638586,
+            "passed": true
+          }
+        ]
+      },
+      "minimumPsnrDb": 56.12359947967774,
+      "maximumPixelDifference": 1,
+      "referenceInferenceTotalMs": 13670.728266,
+      "orderedPairTested": true
     },
     {
       "id": "4x-illustrationjanai-v3denoise-fdat-xl",
@@ -19,7 +101,89 @@
       "license": "CC-BY-NC-4.0",
       "originalWeightsSha256": "3099fd76f427ee29513aa91dda02b9c1a54e0f7fdd08b653175655de798562f7",
       "originalGraphOrLutSha256": "1b41dc4d040ce50cdfb168dc75e43418817742390fdb4eb2dc3ac844a4e2d77f",
-      "status": "Downloaded and promoted FP32; inference/reference integration pending."
+      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "engineLoaded": true,
+      "actualInference": true,
+      "standalone": true,
+      "modelFilesPrepared": true,
+      "windowsValidated": false,
+      "realNvidiaTested": false,
+      "derivedFiles": {
+        "model": {
+          "name": "4x-illustrationjanai-v3denoise-fdat-xl.onnx",
+          "sha256": "3306ea3dd51da95c0b05602b0021da62f59eda59502289b52107dc2b22ee2998"
+        },
+        "license": {
+          "name": "4x-illustrationjanai-v3denoise-fdat-xl.LICENSE.txt",
+          "sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0"
+        },
+        "attribution": {
+          "name": "4x-illustrationjanai-v3denoise-fdat-xl.ATTRIBUTION.txt",
+          "sha256": "df8c70e80bdbfd0bbaaf64721fc45dcc373d3ef36d62a65fe54b9b8dc3f6d8d2"
+        }
+      },
+      "validation": {
+        "pipeline": "jm6-onnx-v1",
+        "passed": true,
+        "images": 3,
+        "provider": "cpu",
+        "runtime": "1.31.1",
+        "scope": "Three varied derivatives of bundled comparison samples; not real-page quality or GPU performance. LUT includes a narrow 12x70200 PNG.",
+        "cases": [
+          {
+            "input": [
+              32,
+              32
+            ],
+            "output": [
+              128,
+              128
+            ],
+            "tile": 64,
+            "maxAbs": 1,
+            "mae": 0.12514241536458334,
+            "psnrDb": 57.15675827859562,
+            "durationMs": 3194.997216,
+            "passed": true
+          },
+          {
+            "input": [
+              35,
+              33
+            ],
+            "output": [
+              140,
+              132
+            ],
+            "tile": 32,
+            "maxAbs": 1,
+            "mae": 0.029888167388167387,
+            "psnrDb": 63.375810740523235,
+            "durationMs": 5355.686288,
+            "passed": true
+          },
+          {
+            "input": [
+              12,
+              97
+            ],
+            "output": [
+              48,
+              388
+            ],
+            "tile": 64,
+            "maxAbs": 1,
+            "mae": 0.0686032359679267,
+            "psnrDb": 59.76735759303015,
+            "durationMs": 4608.865358,
+            "passed": true
+          }
+        ]
+      },
+      "minimumPsnrDb": 57.15675827859562,
+      "maximumPixelDifference": 1,
+      "referenceInferenceTotalMs": 13159.548862,
+      "orderedPairTested": false
     },
     {
       "id": "4x-ultrasharp-v2-dat2",
@@ -29,7 +193,30 @@
       "license": null,
       "originalWeightsSha256": null,
       "originalGraphOrLutSha256": null,
-      "status": "Current executor denies CONNECT. Official weights/license not readable; not installed or tested."
+      "status": "Current executor denies CONNECT. Official weights/license not readable; not installed or tested.",
+      "engineLoaded": false,
+      "actualInference": false,
+      "standalone": false,
+      "orderedPairTested": false,
+      "modelFilesPrepared": false,
+      "windowsValidated": false,
+      "realNvidiaTested": false,
+      "missingFiles": [
+        {
+          "name": "4x-UltraSharpV2.safetensors",
+          "version": "full DAT2 / 2025-05-23 (secondary registry metadata; official card remains unreadable)",
+          "url": "https://huggingface.co/Kim2091/UltraSharpV2/resolve/main/4x-UltraSharpV2.safetensors?download=true",
+          "referenceSha256": "2b5db674aa8f3864a696dccd1d07d7cc0500fbf220f35044cd30eee9a7f971a7"
+        },
+        {
+          "name": "4x-UltraSharpV2_fp32_op17.onnx",
+          "version": "FP32 / opset 17",
+          "url": "https://huggingface.co/Kim2091/UltraSharpV2/resolve/main/4x-UltraSharpV2_fp32_op17.onnx?download=true",
+          "referenceSha256": "6c0201e3403745f39a9aa5273c50ed084cf6c4af5a71a4654c30252cf19bf0a5"
+        }
+      ],
+      "filenameEvidence": "https://raw.githubusercontent.com/OpenModelDB/open-model-database/main/data/models/4x-UltraSharpV2.json",
+      "additionalRequirement": "Official model card/license verification; do not substitute Lite."
     },
     {
       "id": "4x-alchemy",
@@ -39,7 +226,90 @@
       "license": "CC-BY-4.0",
       "originalWeightsSha256": "8bafb02ffcbc2fa6f25523f66b9a055bff4b2a851f8bbe34a2f382703eb1c953",
       "originalGraphOrLutSha256": null,
-      "status": "weights_only load and PLKSR 4X architecture detection succeeded; ONNX inference/integration pending."
+      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "engineLoaded": true,
+      "actualInference": true,
+      "standalone": true,
+      "modelFilesPrepared": true,
+      "windowsValidated": false,
+      "realNvidiaTested": false,
+      "derivedFiles": {
+        "model": {
+          "name": "4x-alchemy.onnx",
+          "sha256": "9daafe46a10d6caaf656333e78669eef4d466ca1c4ea63feae8bda51699a40d1"
+        },
+        "license": {
+          "name": "4x-alchemy.LICENSE.txt",
+          "sha256": "18b7b4a5eea36f38b009307fce4c3ddb059c70e417af74867357f0a0528da60a"
+        },
+        "attribution": {
+          "name": "4x-alchemy.ATTRIBUTION.txt",
+          "sha256": "e5611751164d5cd5e9cc8259a7693416cac0b0648b7f9e38b16dd00f1ef1346b"
+        }
+      },
+      "validation": {
+        "pipeline": "jm6-onnx-v1",
+        "passed": true,
+        "images": 3,
+        "provider": "cpu",
+        "runtime": "1.31.1",
+        "scope": "Three varied derivatives of bundled comparison samples; not real-page quality or GPU performance. LUT includes a narrow 12x70200 PNG.",
+        "cases": [
+          {
+            "input": [
+              32,
+              32
+            ],
+            "output": [
+              128,
+              128
+            ],
+            "tile": 64,
+            "maxAbs": 1,
+            "mae": 6.103515625e-05,
+            "psnrDb": 90.27500300163646,
+            "durationMs": 3250.285447,
+            "passed": true
+          },
+          {
+            "input": [
+              35,
+              33
+            ],
+            "output": [
+              140,
+              132
+            ],
+            "tile": 32,
+            "maxAbs": 0,
+            "mae": 0,
+            "psnrDb": 120,
+            "durationMs": 1231.955862,
+            "passed": true
+          },
+          {
+            "input": [
+              12,
+              97
+            ],
+            "output": [
+              48,
+              388
+            ],
+            "tile": 64,
+            "maxAbs": 1,
+            "mae": 3.579610538373425e-05,
+            "psnrDb": 92.59244582893386,
+            "durationMs": 799.97195,
+            "passed": true
+          }
+        ]
+      },
+      "minimumPsnrDb": 90.27500300163646,
+      "maximumPixelDifference": 1,
+      "referenceInferenceTotalMs": 5282.213259,
+      "orderedPairTested": true,
+      "architecture": "RealPLKSR, detected from original weights; dynamic DySample export validated on odd sizes and tiles"
     },
     {
       "id": "adaptivephotonet-6m",
@@ -49,7 +319,23 @@
       "license": null,
       "originalWeightsSha256": null,
       "originalGraphOrLutSha256": null,
-      "status": "Current executor denies CONNECT. Recipe implementation/license require official files; not installed or tested."
+      "status": "Current executor denies CONNECT. Recipe implementation/license require official files; not installed or tested.",
+      "engineLoaded": false,
+      "actualInference": false,
+      "standalone": false,
+      "orderedPairTested": false,
+      "modelFilesPrepared": false,
+      "windowsValidated": false,
+      "realNvidiaTested": false,
+      "missingFiles": [
+        {
+          "name": null,
+          "version": "AdaptivePhotoNet-6M-ONNX",
+          "format": "ONNX and any official external tensor/recipe assets",
+          "url": "https://huggingface.co/Phitran21/AdaptivePhotoNet-6M-ONNX/tree/main",
+          "reason": "Exact filenames and recipe contract cannot be confirmed: official API/tree denied CONNECT 403. No guessed filename or fake color processing."
+        }
+      ]
     },
     {
       "id": "adaptive-3d-lut-srgb",
@@ -59,7 +345,99 @@
       "license": "Apache-2.0",
       "originalWeightsSha256": "bae9865395625ecae58cfe86147e521093bb1e29e7b2544e02adb238b8035021",
       "originalGraphOrLutSha256": "c1bb2bc4b7239c1a7e96159f5923123ba796b1fceb0b8c3132b423ea825b821a",
-      "status": "Original sRGB paired classifier/LUTs safely loaded; predictor and interpolation integration pending."
+      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "engineLoaded": true,
+      "actualInference": true,
+      "standalone": true,
+      "modelFilesPrepared": true,
+      "windowsValidated": false,
+      "realNvidiaTested": false,
+      "derivedFiles": {
+        "model": {
+          "name": "adaptive-3d-lut-srgb.onnx",
+          "sha256": "4db2a6c3a1ad25bf1418a6b06dd982257d192caec89b85da7dd3942037a71cde"
+        },
+        "luts": {
+          "name": "adaptive-3d-lut-srgb.luts.f32",
+          "sha256": "f2279e4b88cd9d5e50c2f72e37b99a7dad050ac5b32af8add5b0f933448594d7"
+        },
+        "license": {
+          "name": "adaptive-3d-lut-srgb.LICENSE.txt",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        "attribution": {
+          "name": "adaptive-3d-lut-srgb.ATTRIBUTION.txt",
+          "sha256": "fb70955e46ba571850c7c2d0229f476152f12a2e7f0b3dd5984b9cda7a6f50a9"
+        }
+      },
+      "validation": {
+        "pipeline": "jm6-onnx-v1",
+        "passed": true,
+        "images": 3,
+        "provider": "cpu",
+        "runtime": "1.31.1",
+        "scope": "Three varied derivatives of bundled comparison samples; not real-page quality or GPU performance. LUT includes a narrow 12x70200 PNG.",
+        "cases": [
+          {
+            "input": [
+              32,
+              32
+            ],
+            "output": [
+              32,
+              32
+            ],
+            "tile": 64,
+            "colorStrength": 0.35,
+            "colorStyle": "natural",
+            "maxAbs": 0,
+            "mae": 0,
+            "psnrDb": 120,
+            "durationMs": 221.251956,
+            "passed": true
+          },
+          {
+            "input": [
+              35,
+              33
+            ],
+            "output": [
+              35,
+              33
+            ],
+            "tile": 32,
+            "colorStrength": 0.65,
+            "colorStyle": "vivid",
+            "maxAbs": 1,
+            "mae": 0.0011544011544011544,
+            "psnrDb": 77.50723608487773,
+            "durationMs": 80.758561,
+            "passed": true
+          },
+          {
+            "input": [
+              12,
+              70200
+            ],
+            "output": [
+              12,
+              70200
+            ],
+            "tile": 64,
+            "colorStrength": 0.35,
+            "colorStyle": "natural",
+            "maxAbs": 1,
+            "mae": 5.935422602089268e-06,
+            "psnrDb": 100.39628714709322,
+            "durationMs": 730.648142,
+            "passed": true
+          }
+        ]
+      },
+      "minimumPsnrDb": 77.50723608487773,
+      "maximumPixelDifference": 1,
+      "referenceInferenceTotalMs": 1032.658659,
+      "orderedPairTested": true
     }
   ],
   "network": {
@@ -68,6 +446,45 @@
     "huggingFaceAllowed": false,
     "freshProbe": "CONNECT tunnel failed, response 403",
     "userUpdatedReusableEnvironment": true,
-    "nextAction": "Attach a task to the newly saved/published environment, refresh environment_status, retry official model APIs and files."
-  }
+    "nextAction": "Attach a task to the newly saved/published environment, refresh environment_status, retry official model APIs and files.",
+    "lastFreshProbeUtc": "2026-11-11T14:46:31Z"
+  },
+  "orderedPairEvidence": [
+    {
+      "first": "4x-illustrationjanai-v3detail-fdat-xl",
+      "second": "adaptive-3d-lut-srgb",
+      "images": 5,
+      "intermediateResize": false,
+      "capacity": 1,
+      "stageOrderVerified": true,
+      "allOutputsFullyDecoded": true,
+      "firstOutputEqualsOrderedReference": true,
+      "durationMs": 21843.907638,
+      "scope": "Small derivatives of bundled comparison assets; CPU/software Vulkan functional test, not real-page quality or GPU performance."
+    },
+    {
+      "first": "4x-illustrationjanai-v3detail-fdat-xl",
+      "second": "4x-alchemy",
+      "images": 5,
+      "intermediateResize": true,
+      "capacity": 1,
+      "stageOrderVerified": true,
+      "allOutputsFullyDecoded": true,
+      "firstOutputEqualsOrderedReference": true,
+      "durationMs": 27862.974919,
+      "scope": "Small derivatives of bundled comparison assets; CPU/software Vulkan functional test, not real-page quality or GPU performance."
+    },
+    {
+      "first": "upscayl-lite-4x",
+      "second": "adaptive-3d-lut-srgb",
+      "images": 5,
+      "intermediateResize": false,
+      "capacity": 1,
+      "stageOrderVerified": true,
+      "allOutputsFullyDecoded": true,
+      "firstOutputEqualsOrderedReference": null,
+      "durationMs": 29510.613428,
+      "scope": "Small derivatives of bundled comparison assets; CPU/software Vulkan functional test, not real-page quality or GPU performance."
+    }
+  ]
 }
