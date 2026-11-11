@@ -1,0 +1,13 @@
+{
+  "name": "1x Manhwa Null",
+  "author": "null-llun",
+  "source": "https://openmodeldb.info/models/1x-Manhwa-Null",
+  "originalDownload": "https://drive.proton.me/urls/7GEFYESYJ8#FBwTw8efR6yJ",
+  "providedBy": "User-uploaded original weights, reassembled from three verified parts",
+  "originalFilename": "1x_Manhwa_Null.pth",
+  "sizeBytes": 67132992,
+  "sha256": "7d7cee6e08f72cd231fa0d5083e7ec13fb464eff82cae73e0b1292ac6fe51f87",
+  "license": "CC-BY-NC-SA-4.0",
+  "changes": "Original PyTorch weights unchanged. NCNN conversion is generated separately and reference-validated.",
+  "distribution": "Separate optional noncommercial model resource, not app code and not included in the default app payload."
+}
