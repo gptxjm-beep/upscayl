@@ -16,12 +16,15 @@ const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const log=(value:unknown)=>process.stderr.write('[JM6] '+JSON.stringify(value)+'\n');
 const digest=async(file:string)=>{const h=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(file))h.update(chunk);return h.digest('hex');};
 function dimensions(w:number,h:number){if(!Number.isSafeInteger(w)||!Number.isSafeInteger(h)||w<=0||h<=0||w*h*4>MAX_FRAME)throw Object.assign(Error('Unsafe image dimensions; no buffer was allocated.'),{stage:'dimensions'});}
-const image=(file:string|Buffer)=>sharp(file,{failOn:'warning',limitInputPixels:false});
+// libvips/CRT file I/O needs the extended Windows namespace even when
+// Node can already create the same long Unicode path. Keep journal paths plain.
+const filesystemPath=(file:string)=>process.platform==='win32'?path.toNamespacedPath(file):file;
+const image=(file:string|Buffer)=>sharp(typeof file==='string'?filesystemPath(file):file,{failOn:'warning',limitInputPixels:false});
 async function encode(source:sharp.Sharp,file:string,options:StageOptions){
  if(options.format==='png')source=source.png({compressionLevel:Math.round(clamp(Number(options.compression)||0,0,100)*.09)});
  else if(options.format==='jpg')source=source.jpeg({quality:clamp(100-Number(options.compression),1,100),chromaSubsampling:'4:4:4'});
  else source=source.webp({quality:clamp(100-Number(options.compression),1,100)});
- try{await source.toFile(file);}catch(error){throw Object.assign(error as Error,{stage:'encode'});}
+ try{await source.toFile(filesystemPath(file));}catch(error){throw Object.assign(error as Error,{stage:'encode'});}
 }
 function chw(rgb:Buffer,width:number,height:number){const area=width*height,data=new Float32Array(3*area);for(let i=0;i<area;i++)for(let c=0;c<3;c++)data[c*area+i]=rgb[3*i+c]/255;return data;}
 function orient(data:Float32Array,w:number,h:number,swap:boolean,fx:boolean,fy:boolean){const out=new Float32Array(data.length),vw=swap?h:w,vh=swap?w:h;for(let c=0;c<3;c++)for(let y=0;y<h;y++)for(let x=0;x<w;x++){const a=fx?w-1-x:x,b=fy?h-1-y:y,tx=swap?b:a,ty=swap?a:b;out[c*vw*vh+ty*vw+tx]=data[c*w*h+y*w+x];}return {data:out,width:vw,height:vh};}
@@ -96,30 +99,30 @@ export class PipelineRuntime{
      const cw=Math.min(tile,w-x),left=Math.max(0,x-halo),top=Math.max(0,y-halo),width=Math.min(w,x+cw+halo)-left,height=Math.min(h,y+ch+halo)-top,pw=Math.max(model.minimum,Math.ceil(width/multiple)*multiple),ph=Math.max(model.minimum,Math.ceil(height/multiple)*multiple);
      const rgb=await image(input).extract({left,top,width,height}).extend({right:pw-width,bottom:ph-height,left:0,top:0,extendWith:'mirror'}).removeAlpha().toColourspace('srgb').raw().toBuffer();
      const out=await this.infer(model,rgb,pw,ph,options),file=path.join(work,String(index++)+'.png');
-     await sharp(out.data,{raw:{width:out.width,height:out.height,channels:3},limitInputPixels:false}).extract({left:(x-left)*scale,top:(y-top)*scale,width:cw*scale,height:ch*scale}).png({compressionLevel:0}).toFile(file);row.push({input:file,left:x*scale,top:0});
+     await sharp(out.data,{raw:{width:out.width,height:out.height,channels:3},limitInputPixels:false}).extract({left:(x-left)*scale,top:(y-top)*scale,width:cw*scale,height:ch*scale}).png({compressionLevel:0}).toFile(filesystemPath(file));row.push({input:filesystemPath(file),left:x*scale,top:0});
     }
-    const file=path.join(work,'stripe-'+y+'.png');await sharp({create:{width:w*scale,height:ch*scale,channels:3,background:'black'},limitInputPixels:false}).composite(row).png({compressionLevel:0}).toFile(file);for(const f of row)fs.rmSync(f.input);stripes.push({input:file,left:0,top:y*scale,width:w*scale,height:ch*scale});
+    const file=path.join(work,'stripe-'+y+'.png');await sharp({create:{width:w*scale,height:ch*scale,channels:3,background:'black'},limitInputPixels:false}).composite(row).png({compressionLevel:0}).toFile(filesystemPath(file));for(const f of row)fs.rmSync(f.input);stripes.push({input:filesystemPath(file),left:0,top:y*scale,width:w*scale,height:ch*scale});
    }
    // Group strips before final assembly, bounding open codecs for long pages.
-   let level=0;while(stripes.length>32){const grouped:typeof stripes=[];for(let start=0;start<stripes.length;start+=32){const group=stripes.slice(start,start+32),height=group.reduce((n,s)=>n+s.height,0),file=path.join(work,`level-${level}-${start}.png`),top=group[0].top;await sharp({create:{width:w*scale,height,channels:3,background:'black'},limitInputPixels:false}).composite(group.map(f=>({input:f.input,left:0,top:f.top-top}))).png({compressionLevel:0}).toFile(file);for(const f of group)fs.rmSync(f.input);grouped.push({input:file,left:0,top,width:w*scale,height});}stripes=grouped;level++;}
-   await sharp({create:{width:w*scale,height:h*scale,channels:3,background:'black'},limitInputPixels:false}).composite(stripes.map(f=>({input:f.input,left:0,top:f.top}))).png({compressionLevel:0}).toFile(native);
+   let level=0;while(stripes.length>32){const grouped:typeof stripes=[];for(let start=0;start<stripes.length;start+=32){const group=stripes.slice(start,start+32),height=group.reduce((n,s)=>n+s.height,0),file=path.join(work,`level-${level}-${start}.png`),top=group[0].top;await sharp({create:{width:w*scale,height,channels:3,background:'black'},limitInputPixels:false}).composite(group.map(f=>({input:f.input,left:0,top:f.top-top}))).png({compressionLevel:0}).toFile(filesystemPath(file));for(const f of group)fs.rmSync(f.input);grouped.push({input:filesystemPath(file),left:0,top,width:w*scale,height});}stripes=grouped;level++;}
+   await sharp({create:{width:w*scale,height:h*scale,channels:3,background:'black'},limitInputPixels:false}).composite(stripes.map(f=>({input:f.input,left:0,top:f.top}))).png({compressionLevel:0}).toFile(filesystemPath(native));
    // Sharp joins channels before removeAlpha, regardless of JS call order.
    // Materialize RGB separately before attaching the original resized alpha.
    let result:sharp.Sharp;
-   if(meta.hasAlpha){const rgbFile=path.join(work,'rgb-native.png');await image(native).removeAlpha().png({compressionLevel:0}).toFile(rgbFile);result=image(rgbFile);}else result=image(native).removeAlpha();
+   if(meta.hasAlpha){const rgbFile=path.join(work,'rgb-native.png');await image(native).removeAlpha().png({compressionLevel:0}).toFile(filesystemPath(rgbFile));result=image(rgbFile);}else result=image(native).removeAlpha();
    if(options.width&&(options.width!==w*scale||options.height!==h*scale))result=result.resize(options.width,options.height,{fit:'fill',kernel:'lanczos3'});
-   if(meta.hasAlpha){const alphaFile=path.join(work,'original-alpha.png');await image(input).ensureAlpha().extractChannel(3).resize(options.width||w*scale,options.height||h*scale,{fit:'fill',kernel:'lanczos3'}).png().toFile(alphaFile);result=result.joinChannel(alphaFile);}
+   if(meta.hasAlpha){const alphaFile=path.join(work,'original-alpha.png');await image(input).ensureAlpha().extractChannel(3).resize(options.width||w*scale,options.height||h*scale,{fit:'fill',kernel:'lanczos3'}).png().toFile(filesystemPath(alphaFile));result=result.joinChannel(filesystemPath(alphaFile));}
    await encode(result,output,options);
   }finally{fs.rmSync(work,{recursive:true,force:true,maxRetries:10,retryDelay:100});fs.rmSync(native,{force:true});}
  }
  private async native(model:StageModel,input:string,output:string,options:StageOptions){
   await this.release();if(!model.nativeEngine||await digest(model.nativeEngine)!==model.nativeHash)throw Error('The NCNN bridge engine changed.');
   for(const ext of ['param','bin']){const expected=model.hash.split(':')[ext==='param'?0:1];if(await digest(path.join(model.directory,model.id+'.'+ext))!==expected)throw Error('NCNN model changed before inference.');}
-  const args=['-i',input,'-o',output,'-m',model.directory,'-n',model.id,'-z',String(model.nativeScale),'-g',options.gpuId||'0','-t',String(options.tileSize||0),'-f',options.format,'-c',options.compression];
+  const args=['-i',filesystemPath(input),'-o',filesystemPath(output),'-m',filesystemPath(model.directory),'-n',model.id,'-z',String(model.nativeScale),'-g',options.gpuId||'0','-t',String(options.tileSize||0),'-f',options.format,'-c',options.compression];
   if(options.width&&options.height)args.push('-r',options.width+'x'+options.height);else if(options.width)args.push('-w',String(options.width));else args.push('-s',String(model.nativeScale));if(model.inputMultiple>1)args.push('-a',String(model.inputMultiple));if(model.fullPrecision)args.push('-F','1');if(options.ttaMode)args.push('-x');
   log({event:'ncnn-bridge',id:model.id,version:model.version,hash:model.hash,processPerStage:true});
   const control=fs.mkdtempSync(path.join(options.control||path.dirname(output),'.bridge-')),owner=options.control?path.join(options.control,'bridge-owner.json'):undefined;
-  fs.writeFileSync(path.join(control,'lease'),'1');fs.writeFileSync(path.join(control,'manifest'),Buffer.from(input).toString('hex')+'\t'+Buffer.from(output).toString('hex')+'\n');args.push('-Q',control,'-L',path.join(control,'manifest'));
+  fs.writeFileSync(path.join(control,'lease'),'1');fs.writeFileSync(path.join(control,'manifest'),Buffer.from(filesystemPath(input)).toString('hex')+'\t'+Buffer.from(filesystemPath(output)).toString('hex')+'\n');args.push('-Q',filesystemPath(control),'-L',filesystemPath(path.join(control,'manifest')));
   try{await new Promise<void>((resolve,reject)=>{let tail='';const child=spawn(model.nativeEngine!,args,{windowsHide:true,env:process.env});
    if(owner&&child.pid){const fd=fs.openSync(owner,'w');try{fs.writeFileSync(fd,JSON.stringify({pid:child.pid,control}));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
    const lease=setInterval(()=>{try{fs.utimesSync(path.join(control,'lease'),new Date(),new Date());}catch{}},2000);
