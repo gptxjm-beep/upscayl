@@ -73,3 +73,4 @@ The Windows workflow triggers by push on this branch, compiles the exact engine,
 Previous run `42926224886` on `857c070` is **Cancelled**, with `repository invocation blocked`; its Windows packaging job passed, but its dependent model job did not establish success. That run is not proof of the final changes. A current successful run and verified delivery manifest are required for current Installer/Portable download claims.
 
 Still requiring suitable hardware/data: Windows 11 / RTX 3060 Ti, physical VRAM/residency/fallback measurements, 100-image original-model regression timing, 1000 trained-model real pages, original 720×35100 AI inference to 1440×70200, real comic line/color quality and physical Windows disk-full/viewers. `tools/jm5/README.md` provides guarded Windows benchmark/acceptance commands and report-sharing instructions. Original `tools/benchmark` work remains untouched.
+Windows CI verification requested
