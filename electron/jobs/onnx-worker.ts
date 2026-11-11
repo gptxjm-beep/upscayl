@@ -53,7 +53,7 @@ export class PipelineRuntime{
   const provider=options.provider||(process.platform==='win32'?'dml':'cpu');
   if(!ort.listSupportedBackends().some(b=>b.name===provider&&b.bundled))throw Error(`Required ONNX execution provider ${provider} is not available.`);
   const session=await ort.InferenceSession.create(path.join(model.directory,m.files.model.name),{executionProviders:provider==='dml'?[{name:'dml',deviceId:Number(options.gpuId)||0}]:['cpu'],executionMode:'sequential',enableMemPattern:false,intraOpNumThreads:2,interOpNumThreads:1});
-  this.resident={id:model.id,session};log({event:'model-loaded',id:model.id,version:model.version,hash:model.hash.slice(0,16),graphSha256:m.files.model.sha256.slice(0,16),sourceSha256:m.sourceSha256.slice(0,16),provider,device:options.gpuId,residency:'one-onnx-session',runtime:ORT_VERSION});return session;
+  this.resident={id:model.id,session};log({event:'model-loaded',id:model.id,version:model.version,hash:model.hash,graphSha256:m.files.model.sha256,sourceSha256:m.sourceSha256,provider,device:options.gpuId,residency:'one-onnx-session',runtime:ORT_VERSION});return session;
  }
  async predict(model:StageModel,input:Float32Array,width:number,height:number,options:StageOptions){
   const session=await this.load(model,options),m=model.manifest!,out=await session.run({[m.input]:new ort.Tensor('float32',input,[1,3,height,width])});
@@ -117,7 +117,7 @@ export class PipelineRuntime{
   for(const ext of ['param','bin']){const expected=model.hash.split(':')[ext==='param'?0:1];if(await digest(path.join(model.directory,model.id+'.'+ext))!==expected)throw Error('NCNN model changed before inference.');}
   const args=['-i',input,'-o',output,'-m',model.directory,'-n',model.id,'-z',String(model.nativeScale),'-g',options.gpuId||'0','-t',String(options.tileSize||0),'-f',options.format,'-c',options.compression];
   if(options.width&&options.height)args.push('-r',options.width+'x'+options.height);else if(options.width)args.push('-w',String(options.width));else args.push('-s',String(model.nativeScale));if(model.inputMultiple>1)args.push('-a',String(model.inputMultiple));if(model.fullPrecision)args.push('-F','1');if(options.ttaMode)args.push('-x');
-  log({event:'ncnn-bridge',id:model.id,version:model.version,hash:model.hash.slice(0,16),processPerStage:true});
+  log({event:'ncnn-bridge',id:model.id,version:model.version,hash:model.hash,processPerStage:true});
   const control=fs.mkdtempSync(path.join(options.control||path.dirname(output),'.bridge-')),owner=options.control?path.join(options.control,'bridge-owner.json'):undefined;
   fs.writeFileSync(path.join(control,'lease'),'1');fs.writeFileSync(path.join(control,'manifest'),Buffer.from(input).toString('hex')+'\t'+Buffer.from(output).toString('hex')+'\n');args.push('-Q',control,'-L',path.join(control,'manifest'));
   try{await new Promise<void>((resolve,reject)=>{let tail='';const child=spawn(model.nativeEngine!,args,{windowsHide:true,env:process.env});

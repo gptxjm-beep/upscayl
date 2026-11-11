@@ -14,7 +14,7 @@ export async function discoverModels(folder:string){
    if(isPipelineModel(id)){await verifiedPipelineModel(folder,id);}
    else{
     const param=path.join(folder,id+'.param'),bin=path.join(folder,id+'.bin');
-    for(const file of [param,bin]){const s=await fs.promises.lstat(file);if(!s.isFile()||s.isSymbolicLink())throw Error('Incomplete or unsafe NCNN model pair.');}
+    for(const file of [param,bin]){const s=await fs.promises.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size===0)throw Error('Incomplete or unsafe NCNN model pair.');}
     const fd=await fs.promises.open(param,'r');let header:Buffer;
     try{header=Buffer.alloc(1024);const r=await fd.read(header,0,header.length,0);header=header.subarray(0,r.bytesRead);}finally{await fd.close();}
     if(!/^\s*7767517\s+[1-9]\d*\s+[1-9]\d*\s/.test(header.toString('utf8')))throw Error('Invalid NCNN parameter header.');
