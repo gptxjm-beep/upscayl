@@ -6,6 +6,22 @@ const root=path.resolve(__dirname,'../..'),win=process.platform==='win32';
 const engine=process.env.UPSCAYL_TEST_ENGINE||path.join(root,'resources',win?'win':'linux','bin',win?'upscayl-jm.exe':'upscayl-jm');
 const icd=path.join(root,'node_modules/electron/dist/vk_swiftshader_icd.json');
 function end(m){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{void m.cancel();reject(Error('two-stage test timeout'));},480000);m.once('settled',()=>{clearTimeout(timer);resolve();});});}
+function corruptPixelStream(encoded){
+ // Truncation is decoder-dependent: WIC accepts the old 63-byte fixture.
+ // Keep the PNG/chunk CRCs valid, but use the reserved DEFLATE block type 3.
+ // Header readers still see 8x8; every conforming pixel decoder must fail.
+ const broken=Buffer.from(encoded);
+ for(let offset=8;offset+12<=broken.length;){
+  const length=broken.readUInt32BE(offset);assert(offset+12+length<=broken.length);
+  if(broken.toString('ascii',offset+4,offset+8)==='IDAT'){
+   assert(length>=3);broken[offset+10]=7;
+   let crc=0xffffffff;for(const byte of broken.subarray(offset+4,offset+8+length)){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+   broken.writeUInt32BE((crc^0xffffffff)>>>0,offset+8+length);return broken;
+  }
+  offset+=12+length;
+ }
+ throw Error('Fixture must contain PNG pixel data');
+}
 async function fixture(t,count=4){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'jm5-two-')),source=path.join(folder,'漫画 العربية'),models=path.join(folder,'models');fs.mkdirSync(source);fs.mkdirSync(models);
  t.after(()=>{const dest=path.join(root,'.test-artifacts/two-stage');fs.mkdirSync(dest,{recursive:true});const logs=path.join(folder,'logs');if(fs.existsSync(logs))for(const n of fs.readdirSync(logs))fs.copyFileSync(path.join(logs,n),path.join(dest,n));fs.rmSync(folder,{recursive:true,force:true});});
@@ -24,8 +40,9 @@ async function fixture(t,count=4){
 for(const two of [false,true])test(`${two?'two-stage':'single-model'} 1000 jobs with corrupt image 50: 999 complete, report and repaired-source recovery`,{timeout:500000},async t=>{
  const f=await fixture(t,1000),m=f.make();
  if(!two){delete f.settings.useTwoModels;delete f.settings.secondModel;}
- const broken=path.join(f.source,'0049.png'),encoded=fs.readFileSync(broken);fs.writeFileSync(broken,encoded.subarray(0,63));
+ const broken=path.join(f.source,'0049.png'),encoded=fs.readFileSync(broken);fs.writeFileSync(broken,corruptPixelStream(encoded));
  const header=await sharp(broken).metadata();assert.equal(header.width,8,'corrupt fixture must reach native decode, not preparation rejection');
+ await assert.rejects(()=>sharp(broken).raw().toBuffer(),/IDAT|inflate|corrupt|decode|stream/i,'fixture must have invalid pixels, not just a missing optional trailer');
  let active=0,peak=0,admitted=0,released=0,progressive=false;
  m.on('native-trace',e=>{if(e.event==='ADMIT'){assert.equal(active,0);active++;peak=Math.max(active,peak);admitted++;}if(e.event==='RELEASE'){assert.equal(m.snapshot().completed+m.snapshot().failed,released+1,'no release before durable final adoption or recorded image failure');released++;active--;}});
  m.on('state',s=>{if(s.completed>0&&s.completed<1000)progressive=true;});
