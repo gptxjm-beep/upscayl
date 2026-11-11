@@ -25,3 +25,7 @@ test('curated imports stay unavailable without a passed, acknowledged, hash-matc
  data.licenseAccepted=true;fs.writeFileSync(file,JSON.stringify(data));fs.appendFileSync(path.join(dir,id+'.bin'),'changed');await assert.rejects(()=>verifiedOptionalModel(dir,id),/changed after validation/);
  assert.equal(await verifiedOptionalModel(dir,'legacy-custom-4x'),undefined);
 });
+
+test('Manhwa imports require the phase-preserving padding metadata',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'jm-manhwa-meta-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const id='1x-manhwa-null',m=OPTIONAL_MODELS[id],file=path.join(dir,id+'.model.json');for(const ext of ['param','bin'])fs.writeFileSync(path.join(dir,id+'.'+ext),'fixture');const saved={version:1,id,...m,licenseAccepted:true,validation:{passed:true,pipeline:'jm5-model-api-v1'},files:{param:await hash(path.join(dir,id+'.param')),bin:await hash(path.join(dir,id+'.bin'))}};assert.equal(m.inputMultiple,4);assert.equal(m.prepadding,12);fs.writeFileSync(file,JSON.stringify(saved));assert(await verifiedOptionalModel(dir,id));delete saved.prepadding;fs.writeFileSync(file,JSON.stringify(saved));await assert.rejects(()=>verifiedOptionalModel(dir,id),/verified/);
+});

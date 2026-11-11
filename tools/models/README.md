@@ -26,7 +26,7 @@ https://github.com/the-database/MangaJaNai/releases/tag/1.0.0
 - IllustrationJaNai: `4x_IllustrationJaNai_V1_ESRGAN_135k.pth` from the Illustration archive.
 - MangaJaNai: `2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth` from the Manga archive.
 - Manhwa Null: follow the original download link at
-  https://openmodeldb.info/models/1x-Manhwa-Null . The verified user-provided original is also stored in `vendor/optional-model-sources/Manhwa-Null`, together with its source/attribution and separate CC-BY-NC-SA license. It has native scale 1X with PixelUnshuffle4 input alignment. Do not substitute an unrelated weight or rename another model to Manhwa Null.
+  https://openmodeldb.info/models/1x-Manhwa-Null . The verified user-provided original is also stored in `vendor/optional-model-sources/Manhwa-Null`, together with its source/attribution and separate CC-BY-NC-SA license. It has native scale 1X with PixelUnshuffle4 input alignment, padding12 and aligned tile origins. Do not substitute an unrelated weight or rename another model to Manhwa Null.
 
 Download `ncnnoptimize.exe` from the official **20240410** Windows tools release:
 https://github.com/Tencent/ncnn/releases/tag/20240410
@@ -54,7 +54,7 @@ and the model manifest, **not the original weights**, to review compatibility.
 The import tool uses `weights_only=True`, checks the original SHA-256 before
 loading, checks ESRGAN/RGB/native scale/alignment, compares actual native Vulkan
 inference against PyTorch on five synthetic cases (32×32, odd dimensions, tiles,
-tiny border, TTA), and activates the manifest only after all comparisons pass.
+tiny border, TTA), plus a narrow 12×601 aligned-tile case for Manhwa, and activates the manifest only after all comparisons pass.
 Thresholds: PSNR >= 40 dB, mean absolute error <= 2, max absolute error <= 24
 (8-bit channels). This proves the listed functional cases; it does not prove
 visual quality on real pages, all drivers, alpha handling, or GPU performance.

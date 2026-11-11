@@ -56,7 +56,7 @@ struct Models {
     RealESRGAN* get(int stage){
         if(nets[stage])return nets[stage].get();
         if(!resident)nets[1-stage].reset();
-        auto load=[&](){auto net=std::make_unique<RealESRGAN>(gpu,tta,(precision&(1<<stage))!=0);if(net->load(params[stage].native(),bins[stage].native()))return std::unique_ptr<RealESRGAN>{};net->scale=scales[stage];net->tilesize=tile;net->prepadding=10;net->input_multiple=alignments[stage];return net;};
+        auto load=[&](){auto net=std::make_unique<RealESRGAN>(gpu,tta,(precision&(1<<stage))!=0);if(net->load(params[stage].native(),bins[stage].native()))return std::unique_ptr<RealESRGAN>{};net->scale=scales[stage];net->tilesize=tile/alignments[stage]*alignments[stage];net->prepadding=((10+alignments[stage]-1)/alignments[stage])*alignments[stage];net->input_multiple=alignments[stage];return net;};
         nets[stage]=load();
         if(!nets[stage]&&resident&&nets[1-stage]){nets[1-stage].reset();resident=false;fprintf(stderr,"[two-stage] resident load failed; switching to one resident model (reload cost per stage)\n");nets[stage]=load();}
         if(nets[stage])fprintf(stderr,"[two-stage] model-load stage=%d count=%d mode=%s\n",stage+1,++loads[stage],resident?"two-resident":"one-resident");return nets[stage].get();

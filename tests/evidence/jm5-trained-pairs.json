@@ -1,0 +1,21 @@
+{
+  "scope": "Synthetic 8x8 RGB actual NCNN inference, compared with two ordered native invocations. Software Vulkan, not real-page quality/performance.",
+  "pairs": {
+    "MangaJaNai 2X \u2192 IllustrationJaNai 4X": {
+      "scope": "Trained MangaJaNai 2X \u2192 IllustrationJaNai 4X, native 8X, final 2X, 8\u00d78 synthetic input. Pixel-identical to two ordered native invocations with final resize once. Software Vulkan; not real-page quality/performance.",
+      "output": [
+        16,
+        16
+      ],
+      "equalPixels": true
+    },
+    "Manhwa Null 1X \u2192 IllustrationJaNai 4X": {
+      "scope": "Trained 1x-manhwa-null \u2192 IllustrationJaNai 4X, native 4X, final 2X, 8\u00d78 synthetic input. Pixel-identical to two ordered native invocations with final resize once. Software Vulkan; not real-page quality/performance.",
+      "output": [
+        16,
+        16
+      ],
+      "equalPixels": true
+    }
+  }
+}

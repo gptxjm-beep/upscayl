@@ -63,7 +63,7 @@ def main():
             run([a.optimizer.resolve(), work/'input.param', work/'rrdb.ncnn.bin', work/(a.id+'.param'), work/(a.id+'.bin'), '65536'], work/'optimizer.log')
         evidence=a.destination/(a.id+'.validation'); evidence.mkdir(exist_ok=True)
         for suffix in ['.param','.bin']: shutil.copy2(work/(a.id+suffix),evidence/('candidate'+suffix))
-        scale = meta['nativeScale']; alignment = meta['inputMultiple']
+        scale = meta['nativeScale']; alignment = meta['inputMultiple']; padding=((10+alignment-1)//alignment)*alignment
         def reflect(indices, length):
             if length == 1: return np.zeros_like(indices)
             values = indices % (2*(length-1)); return np.where(values < length, values, 2*(length-1)-values)
@@ -72,9 +72,9 @@ def main():
             for y in range(0,h,tile):
                 for x in range(0,w,tile):
                     th,tw = min(tile,h-y),min(tile,w-x)
-                    ph,pw = th+20,tw+20
+                    ph,pw = th+2*padding,tw+2*padding
                     ph += (-ph)%alignment; pw += (-pw)%alignment
-                    padded = array[reflect(np.arange(y-10,y-10+ph),h)[:,None],reflect(np.arange(x-10,x-10+pw),w)[None,:],:]
+                    padded = array[reflect(np.arange(y-padding,y-padding+ph),h)[:,None],reflect(np.arange(x-padding,x-padding+pw),w)[None,:],:]
                     tensor = torch.from_numpy(padded.copy()).permute(2,0,1)[None].float()/255
                     predictions=[]
                     with torch.inference_mode():
@@ -86,24 +86,28 @@ def main():
                                 if flip: output=output.flip(flip)
                                 if transpose: output=output.transpose(-2,-1)
                                 predictions.append(output)
-                    mean=torch.stack(predictions).mean(0)[0,:,10*scale:(10+th)*scale,10*scale:(10+tw)*scale]
+                    mean=torch.stack(predictions).mean(0)[0,:,padding*scale:(padding+th)*scale,padding*scale:(padding+tw)*scale]
                     result[y*scale:(y+th)*scale,x*scale:(x+tw)*scale] = mean.permute(1,2,0).numpy()
             return np.floor(np.clip(result,0,1)*255+.5).astype(np.uint8)
         reports=[]
-        for index,(width,height,tta) in enumerate([(32,32,False),(17,13,False),(35,33,False),(8,8,False),(17,19,True)]):
+        cases=[(32,32,False),(17,13,False),(35,33,False),(8,8,False),(17,19,True)]
+        if a.id=='1x-manhwa-null': cases.append((12,601,False))
+        for index,(width,height,tta) in enumerate(cases):
             yy,xx=np.mgrid[:height,:width]
             rgb=np.stack([(xx*7+yy*3)%256,(xx*2+yy*11)%256,(xx*13+yy*5)%256],axis=-1).astype(np.uint8)
             inp=work/f'case-{index}.png'; out=work/f'result-{index}.png'; Image.fromarray(rgb).save(inp)
-            command=[a.engine.resolve(),'-i',inp,'-o',out,'-m',work,'-n',a.id,'-z',scale,'-a',alignment,'-g',a.gpu,'-t',32,'-f','png','-c',6]
+            requested_tile=33 if a.id=='1x-manhwa-null' and index==5 else 32
+            effective_tile=requested_tile//alignment*alignment
+            command=[a.engine.resolve(),'-i',inp,'-o',out,'-m',work,'-n',a.id,'-z',scale,'-a',alignment,'-g',a.gpu,'-t',requested_tile,'-f','png','-c',6]
             if meta.get('fullPrecision'): command+=['-F','1']
             if tta: command+=['-x']
             run(command,work/f'engine-{index}.log')
             with Image.open(out) as decoded:
                 decoded.load(); actual=np.array(decoded.convert('RGB'))
-            expected=reference(rgb,32,tta)
+            expected=reference(rgb,effective_tile,tta)
             if actual.shape != expected.shape: raise RuntimeError('Native output dimensions differ from reference.')
             delta=actual.astype(np.float64)-expected.astype(np.float64); mse=float((delta**2).mean())
-            metrics={'input':[width,height],'output':[width*scale,height*scale],'tile':32,'tta':tta,'maxAbs':float(abs(delta).max()),'mae':float(abs(delta).mean()),'psnrDb':100 if mse==0 else 20*math.log10(255/math.sqrt(mse))}
+            metrics={'input':[width,height],'output':[width*scale,height*scale],'tileRequested':requested_tile,'tileEffective':effective_tile,'padding':padding,'tta':tta,'maxAbs':float(abs(delta).max()),'mae':float(abs(delta).mean()),'psnrDb':100 if mse==0 else 20*math.log10(255/math.sqrt(mse))}
             metrics['passed']=metrics['psnrDb']>=40 and metrics['mae']<=2 and metrics['maxAbs']<=24
             reports.append(metrics); print(json.dumps(metrics),flush=True)
             # Preserve evidence even if the compatibility gate rejects a model.
@@ -117,5 +121,6 @@ def main():
         (a.destination/(a.id+'.ATTRIBUTION.txt')).write_text(meta['name']+' by '+meta['author']+'\nSource: '+meta['source']+'\nLicense: '+meta['license']+'\nChanges: converted to NCNN FP16 with native padding/alignment; see model manifest for validation scope.\n')
         # Manifest is the activation gate; publish it only after every check passed.
         temp=a.destination/(a.id+'.model.json.pending');temp.write_text(json.dumps(manifest,indent=2)+'\n');temp.replace(a.destination/(a.id+'.model.json'))
+        for suffix in ['.param','.bin']:(evidence/('candidate'+suffix)).unlink(missing_ok=True)
         print('Verified optional import ready:',a.destination,flush=True)
 if __name__=='__main__': main()

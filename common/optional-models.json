@@ -6,7 +6,8 @@
     "source": "https://openmodeldb.info/models/1x-Manhwa-Null",
     "license": "CC-BY-NC-SA-4.0",
     "sourceSha256": "7d7cee6e08f72cd231fa0d5083e7ec13fb464eff82cae73e0b1292ac6fe51f87",
-    "author": "null-llun"
+    "author": "null-llun",
+    "prepadding": 12
   },
   "4x-illustrationjanai-v1-esrgan": {
     "name": "IllustrationJaNai V1 ESRGAN",

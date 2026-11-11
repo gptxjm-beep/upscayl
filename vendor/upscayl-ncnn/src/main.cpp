@@ -1061,7 +1061,8 @@ int main(int argc, char **argv)
 
     jm::Monitor monitor;
     if(input_multiple!=1&&input_multiple!=2&&input_multiple!=4){fprintf(stderr,"Invalid model input alignment\n");return -1;}
-    const int prepadding=10; // All supported networks are declared ESRGAN/RRDB.
+    // Pixel-unshuffle models must preserve the original global pixel phase.
+    const int prepadding=((10+input_multiple-1)/input_multiple)*input_multiple;
 
     // if (modelname.find(PATHSTR("realesrgan-x4plus")) != path_t::npos
     //     || modelname.find(PATHSTR("realesrnet-x4plus")) != path_t::npos
@@ -1179,7 +1180,7 @@ int main(int argc, char **argv)
             if(realesrgan[i]->load(paramfullpath, modelfullpath) != 0) return -1;
 
             realesrgan[i]->scale = scale;
-            realesrgan[i]->tilesize = tilesize[i];
+            realesrgan[i]->tilesize = tilesize[i]/input_multiple*input_multiple;
             realesrgan[i]->prepadding = prepadding;
             realesrgan[i]->input_multiple = input_multiple;
         }

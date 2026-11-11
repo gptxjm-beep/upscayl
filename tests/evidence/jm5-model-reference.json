@@ -228,6 +228,7 @@
       "license": "CC-BY-NC-SA-4.0",
       "sourceSha256": "7d7cee6e08f72cd231fa0d5083e7ec13fb464eff82cae73e0b1292ac6fe51f87",
       "author": "null-llun",
+      "prepadding": 12,
       "licenseAccepted": true,
       "files": {
         "param": "6583f91f9087e8a947089407b8e19d9f5795303cb4f1dc0e7e8745961fc355f3",
@@ -236,10 +237,10 @@
       "validation": {
         "pipeline": "jm5-model-api-v1",
         "passed": true,
-        "engineSha256": "e305311f36568c4a25f690952a30cf2ce3f2e74df8eff159bc98e1f65c79d46a",
+        "engineSha256": "2e2ab0e03a3def8539cc8d608abd6d75f098e4aac55380352f399c5354f46c45",
         "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
         "torch": "2.6.0+cpu",
-        "conversionReused": false,
+        "conversionReused": true,
         "optimizerSha256": "5b529bdfed11c825f58dfa4fdc48c97330579fbe3dd0d90620ebbb8be1c13e6a",
         "cases": [
           {
@@ -251,11 +252,13 @@
               32,
               32
             ],
-            "tile": 32,
+            "tileRequested": 32,
+            "tileEffective": 32,
+            "padding": 12,
             "tta": false,
             "maxAbs": 2.0,
-            "mae": 0.3714192708333333,
-            "psnrDb": 52.424553418321025,
+            "mae": 0.3912760416666667,
+            "psnrDb": 52.177162019109346,
             "passed": true
           },
           {
@@ -267,11 +270,13 @@
               17,
               13
             ],
-            "tile": 32,
+            "tileRequested": 32,
+            "tileEffective": 32,
+            "padding": 12,
             "tta": false,
             "maxAbs": 1.0,
-            "mae": 0.2473604826546003,
-            "psnrDb": 54.19750041224986,
+            "mae": 0.277526395173454,
+            "psnrDb": 53.69776066263147,
             "passed": true
           },
           {
@@ -283,11 +288,13 @@
               35,
               33
             ],
-            "tile": 32,
+            "tileRequested": 32,
+            "tileEffective": 32,
+            "padding": 12,
             "tta": false,
             "maxAbs": 2.0,
-            "mae": 0.3497835497835498,
-            "psnrDb": 52.6785002487902,
+            "mae": 0.37575757575757573,
+            "psnrDb": 52.348497647760944,
             "passed": true
           },
           {
@@ -299,11 +306,13 @@
               8,
               8
             ],
-            "tile": 32,
+            "tileRequested": 32,
+            "tileEffective": 32,
+            "padding": 12,
             "tta": false,
             "maxAbs": 1.0,
-            "mae": 0.11979166666666667,
-            "psnrDb": 57.34653753553867,
+            "mae": 0.11458333333333333,
+            "psnrDb": 57.53958908749254,
             "passed": true
           },
           {
@@ -315,11 +324,31 @@
               17,
               19
             ],
-            "tile": 32,
+            "tileRequested": 32,
+            "tileEffective": 32,
+            "padding": 12,
             "tta": true,
             "maxAbs": 1.0,
-            "mae": 0.34262125902992774,
-            "psnrDb": 52.782660542146395,
+            "mae": 0.2961816305469556,
+            "psnrDb": 53.415222411846834,
+            "passed": true
+          },
+          {
+            "input": [
+              12,
+              601
+            ],
+            "output": [
+              12,
+              601
+            ],
+            "tileRequested": 33,
+            "tileEffective": 32,
+            "padding": 12,
+            "tta": false,
+            "maxAbs": 2.0,
+            "mae": 0.3807542983915696,
+            "psnrDb": 52.27403837516678,
             "passed": true
           }
         ],
@@ -327,5 +356,5 @@
       }
     }
   },
-  "manhwaNull": "Original reassembled bytes match the pinned OpenModelDB SHA. PixelUnshuffle4 alignment is required; five synthetic reference cases passed on actual software Vulkan. Windows/long-page acceptance is tracked separately."
+  "manhwaNull": "Original assembled bytes match OpenModelDB SHA. PixelUnshuffle4, padding12 and aligned tile origins preserve pixel phase. Six actual native/PyTorch synthetic comparisons passed, including 12x601 with requested tile33/effective32. Windows and original-page hardware acceptance are separate."
 }

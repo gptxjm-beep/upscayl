@@ -26,7 +26,7 @@ for name, url in [('ncnn','https://github.com/Tencent/ncnn.git'),('libwebp','htt
         'submodule','update','--init','--recursive',cwd=target)
 
 build=vendor / 'build'
-run('cmake','-S',vendor / 'src','-B',build,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF',*sys.argv[1:])
+run('cmake','-S',vendor / 'src','-B',build,'-DCMAKE_BUILD_TYPE=Release','-DWITH_LAYER_reorg=ON','-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF',*sys.argv[1:])
 # Fail codec compilation before unrelated NCNN warnings can bury the first error.
 run('cmake','--build',build,'--config','Release','--target','jm-png-test','--parallel','2')
 run('cmake','--build',build,'--config','Release','--parallel','2')
