@@ -1,0 +1,95 @@
+{
+  "run": "https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372",
+  "status": "Success",
+  "manifest": {
+    "version": "2.15.0-jm.6-dev.2",
+    "commit": "67e2ffb218198e1080bfe5403069d034ee1de72c",
+    "portable_payload": {
+      "engine_sha256": "c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe",
+      "app_exe_sha256": "43894c41b72180632c2772f93b51739945a6e39d4574466f3ed9e7e1c350611d",
+      "asar_sha256": "5ff1475ad93db9570737aa6f82967820844df8faa7f82a1b457096641eaed7f2",
+      "onnx_runtime_x64_sha256": {
+        "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+        "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+        "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d",
+        "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72"
+      },
+      "model_files_verified": 14,
+      "native_help_exit": 4294967295,
+      "native_direct_help_exit_hex": "0xc0000135",
+      "native_help_environment": "CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver"
+    },
+    "installer_payload": {
+      "engine_sha256": "c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe",
+      "app_exe_sha256": "43894c41b72180632c2772f93b51739945a6e39d4574466f3ed9e7e1c350611d",
+      "asar_sha256": "5ff1475ad93db9570737aa6f82967820844df8faa7f82a1b457096641eaed7f2",
+      "onnx_runtime_x64_sha256": {
+        "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+        "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+        "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d",
+        "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72"
+      },
+      "model_files_verified": 14,
+      "native_help_exit": 4294967295,
+      "native_direct_help_exit_hex": "0xc0000135",
+      "native_help_environment": "CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver"
+    },
+    "gpu_inference_tested": false,
+    "files": [
+      {
+        "name": "Upscayl-Enhanced-2.15.0-jm.6-dev.2-x64.exe",
+        "size_bytes": 306312412,
+        "sha256": "d60df98848f31edaffb2cabf822eeb15aaf853b05ad916611435d16480b885a2"
+      },
+      {
+        "name": "Upscayl-Enhanced-2.15.0-jm.6-dev.2-x64.zip",
+        "size_bytes": 363988042,
+        "sha256": "f6e93e1fdbc390becfdcbfa4eba3f7bdf3d885a82791dbb292739694354cf1aa"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "id": "13919482273",
+      "name": "JM6-FDAT-Win10-Diagnostics",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13919482273",
+      "display": [
+        "JM6-FDAT-Win10-Diagnostics",
+        "663 KB",
+        "sha256:aa24c189ba28a6d06dc385f46564e8a6602f7ff949595d8299dcd8782366a242"
+      ]
+    },
+    {
+      "id": "13920045436",
+      "name": "JM6-FDAT-Win10-Installer-candidate",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13920045436",
+      "display": [
+        "JM6-FDAT-Win10-Installer-candidate",
+        "292 MB",
+        "sha256:e8f520e29f9430aaa6e63c433c04ae6910c8a0b12a3b213e9927756da30acc56"
+      ]
+    },
+    {
+      "id": "13919139335",
+      "name": "JM6-FDAT-Win10-Models-candidate",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13919139335",
+      "display": [
+        "JM6-FDAT-Win10-Models-candidate",
+        "205 MB",
+        "sha256:a5e05bf073ffd938ac9708b4ea3b60b5ae455c1f762cb2b2e24f273df67323d9"
+      ]
+    },
+    {
+      "id": "13919691372",
+      "name": "JM6-FDAT-Win10-Portable-candidate",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13919691372",
+      "display": [
+        "JM6-FDAT-Win10-Portable-candidate",
+        "347 MB",
+        "sha256:b1f133915a6282f9d7789b4998f0d721f1db077948f5880ab9e0edc72cd6893b"
+      ]
+    }
+  ],
+  "realNvidiaGpuTested": false,
+  "notes": "Manifest comes from successful runner extraction/verification of actual NSIS and ZIP, not from a build configuration assumption."
+}

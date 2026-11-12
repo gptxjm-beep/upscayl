@@ -56,3 +56,23 @@ Candidate Windows2022 CI uses the exact prior verified native engine, reuses pri
 * Baseline original-weight/packaging evidence: https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265
 
 UltraSharpV2 DAT2 and AdaptivePhotoNet6M remain pending future JM6 requirements. No integration/download changes for those models are included in this focused repair.
+
+
+## Delivered candidate (2026-11-12)
+
+[Successful Actions run43163768372](https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372), source commit `67e2ffb218198e1080bfe5403069d034ee1de72c`, version `2.15.0-jm.6-dev.2`. All steps passed, including actual extracted packaged inference and the packaged diagnostic command. See [runner evidence](fdat-windows-delivery.json), [local CPU evidence](fdat-local-evidence.json) and [file hashes](fdat-Windows-SHA256.txt).
+
+| Artifact | Verified inner delivery bytes |
+|---|---:|
+| [Installer EXE](https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13920045436) | 306,312,412 |
+| [Portable ZIP](https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13919691372) | 363,988,042 |
+| [Corrected seven-model package](https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13919139335) | ZIP size/hash in its model-package-manifest.json |
+| [CI diagnostics/results](https://github.com/gptxjm-beep/upscayl/actions/runs/43163768372/artifacts/13919482273) | Separate test evidence |
+
+GitHub requires sign-in for artifact downloads. Each artifact is an outer ZIP: extract it to obtain the named EXE/Portable/models ZIP and checksum files. Installer/Portable SHA256 above refers to the inner delivery file, not GitHub's outer artifact digest. The candidate retains the same Enhanced application identity/data folder; do not run old and new Enhanced jobs concurrently. Original Upscayl remains a separate installation.
+
+Five non-FDAT models are unchanged relative to the **actual Windows baseline artifact**, including manifests/notices/native weights. Linux-local validation files can differ from those originally prepared on Windows; the runner's proof is authoritative for the Windows package. No original weights were downloaded or converted again for these five models.
+
+There is no Windows10/NVIDIA execution result yet. OS build/driver/actual DML partitioning and the full failing source-image test remain the user's next verification. The default diagnostic covers3 tensor probes per model; `--full` covers3 complete images per model. Profiling provider counts distinguish actual CPU/DML execution. The summary's shapeMode denotes the requested control; CPU runs retain dynamic spatial dimensions, as recorded in each actual inference event. No hardware-performance numbers are inferred from CPU CI.
+
+The final evidence-only documentation commit intentionally uses `[skip ci]`; the downloadable binaries correspond exactly to source commit67e2ffb above. No merge or official release was made.

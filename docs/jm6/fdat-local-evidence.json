@@ -1,0 +1,248 @@
+{
+  "provider": "cpu",
+  "runtime": "1.31.1",
+  "physicalNvidiaTested": false,
+  "originalWeightReference": {
+    "4x-illustrationjanai-v3detail-fdat-xl": [
+      {
+        "input": [
+          32,
+          32
+        ],
+        "output": [
+          128,
+          128
+        ],
+        "tile": 64,
+        "maxAbs": 1,
+        "mae": 0.15875244140625,
+        "psnrDb": 56.12359947967774,
+        "durationMs": 2770.674951,
+        "passed": true
+      },
+      {
+        "input": [
+          35,
+          33
+        ],
+        "output": [
+          140,
+          132
+        ],
+        "tile": 32,
+        "maxAbs": 1,
+        "mae": 0.07014790764790765,
+        "psnrDb": 59.670656393242005,
+        "durationMs": 3733.204537,
+        "passed": true
+      },
+      {
+        "input": [
+          12,
+          97
+        ],
+        "output": [
+          48,
+          388
+        ],
+        "tile": 64,
+        "maxAbs": 1,
+        "mae": 0.14456257159221078,
+        "psnrDb": 56.53024495676039,
+        "durationMs": 3373.11617,
+        "passed": true
+      }
+    ],
+    "4x-illustrationjanai-v3denoise-fdat-xl": [
+      {
+        "input": [
+          32,
+          32
+        ],
+        "output": [
+          128,
+          128
+        ],
+        "tile": 64,
+        "maxAbs": 1,
+        "mae": 0.12514241536458334,
+        "psnrDb": 57.15675827859562,
+        "durationMs": 1741.817147,
+        "passed": true
+      },
+      {
+        "input": [
+          35,
+          33
+        ],
+        "output": [
+          140,
+          132
+        ],
+        "tile": 32,
+        "maxAbs": 1,
+        "mae": 0.029888167388167387,
+        "psnrDb": 63.375810740523235,
+        "durationMs": 3721.944086,
+        "passed": true
+      },
+      {
+        "input": [
+          12,
+          97
+        ],
+        "output": [
+          48,
+          388
+        ],
+        "tile": 64,
+        "maxAbs": 1,
+        "mae": 0.0686032359679267,
+        "psnrDb": 59.76735759303015,
+        "durationMs": 3171.587341,
+        "passed": true
+      }
+    ]
+  },
+  "tensorProbes": [
+    {
+      "id": "4x-illustrationjanai-v3detail-fdat-xl",
+      "graphVersion": "fdat-dml17-v1",
+      "graphSha256": "aeb9c1da795ef421f0750047a4f98ad77f3e99cc659007f2e003db9376b6746c",
+      "input": [
+        160,
+        160
+      ],
+      "completeImage": false,
+      "output": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "passed": true,
+      "durationMs": 22573
+    },
+    {
+      "id": "4x-illustrationjanai-v3detail-fdat-xl",
+      "graphVersion": "fdat-dml17-v1",
+      "graphSha256": "aeb9c1da795ef421f0750047a4f98ad77f3e99cc659007f2e003db9376b6746c",
+      "input": [
+        192,
+        192
+      ],
+      "completeImage": false,
+      "output": [
+        1,
+        3,
+        768,
+        768
+      ],
+      "passed": true,
+      "durationMs": 27399
+    },
+    {
+      "id": "4x-illustrationjanai-v3detail-fdat-xl",
+      "graphVersion": "fdat-dml17-v1",
+      "graphSha256": "aeb9c1da795ef421f0750047a4f98ad77f3e99cc659007f2e003db9376b6746c",
+      "input": [
+        112,
+        72
+      ],
+      "completeImage": false,
+      "output": [
+        1,
+        3,
+        288,
+        448
+      ],
+      "passed": true,
+      "durationMs": 7242
+    },
+    {
+      "id": "4x-illustrationjanai-v3denoise-fdat-xl",
+      "graphVersion": "fdat-dml17-v1",
+      "graphSha256": "7726785984cc8d0f3ff58d4984ef18ec455237db37ac3cc6712b9d291e16bb08",
+      "input": [
+        160,
+        160
+      ],
+      "completeImage": false,
+      "output": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "passed": true,
+      "durationMs": 20621
+    },
+    {
+      "id": "4x-illustrationjanai-v3denoise-fdat-xl",
+      "graphVersion": "fdat-dml17-v1",
+      "graphSha256": "7726785984cc8d0f3ff58d4984ef18ec455237db37ac3cc6712b9d291e16bb08",
+      "input": [
+        192,
+        192
+      ],
+      "completeImage": false,
+      "output": [
+        1,
+        3,
+        768,
+        768
+      ],
+      "passed": true,
+      "durationMs": 33329
+    },
+    {
+      "id": "4x-illustrationjanai-v3denoise-fdat-xl",
+      "graphVersion": "fdat-dml17-v1",
+      "graphSha256": "7726785984cc8d0f3ff58d4984ef18ec455237db37ac3cc6712b9d291e16bb08",
+      "input": [
+        112,
+        72
+      ],
+      "completeImage": false,
+      "output": [
+        1,
+        3,
+        288,
+        448
+      ],
+      "passed": true,
+      "durationMs": 7823
+    }
+  ],
+  "profileProviders": [
+    {
+      "CPUExecutionProvider": 4197
+    },
+    {
+      "CPUExecutionProvider": 4197
+    },
+    {
+      "CPUExecutionProvider": 4197
+    },
+    {
+      "CPUExecutionProvider": 4197
+    },
+    {
+      "CPUExecutionProvider": 4197
+    },
+    {
+      "CPUExecutionProvider": 4197
+    }
+  ],
+  "localTargetedSuite": {
+    "passed": 30,
+    "failed": 0,
+    "notes": "Initial filter included one small 50-image colour fixture (4.2s). Explicit targeted environment now skips it."
+  },
+  "shortPipelineVerification": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 1
+  },
+  "oldFdatGraphsRejectedAndUpdatedGraphsVerified": true
+}
