@@ -21,7 +21,7 @@ export function InputCompression({
           })}
         </p>
       </div>
-      {compression > 0 && (
+      {(
         <p className="text-xs text-base-content/80">
           {t("SETTINGS.IMAGE_COMPRESSION.DESCRIPTION")}
         </p>

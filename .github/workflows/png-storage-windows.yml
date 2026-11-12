@@ -1,0 +1,114 @@
+name: JM6 lossless PNG storage fix — Windows candidate
+on:
+  push:
+    branches: [fix/jm6-lossless-png-compression]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: png-storage-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      NEXT_TELEMETRY_DISABLED: '1'
+      JM6_PROVIDER: cpu
+      JM6_FDAT_TARGETED: '1'
+      JM6_MODELS_DIR: .test-artifacts/png-models/models
+      JM6_PNG_TARGETED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.5'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exact application dependencies
+        run: python tools/ci-command.py --label npm-ci -- npm ci --onnxruntime-node-install=skip
+      - uses: actions/download-artifact@v4
+        with:
+          name: Upscayl-Enhanced-2.15.0-jm.5-Portable-x64
+          run-id: 42980218956
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/jm5-portable
+      - name: Verify unchanged NCNN source and reuse exact engine
+        shell: pwsh
+        run: python tools/reuse-jm5-engine.py "$env:RUNNER_TEMP/jm5-portable"
+      - name: Compile TypeScript
+        run: python tools/ci-command.py --label TypeScript -- npm run tsc
+      - uses: actions/download-artifact@v4
+        with:
+          name: JM6-FDAT-Win10-Models-candidate
+          run-id: 43163768372
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/jm6-baseline-models
+      - uses: actions/download-artifact@v4
+        with:
+          name: JM6-test-diagnostics
+          run-id: 43151751265
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/jm6-baseline-diagnostics
+      - name: Extract verified baseline models without replacing application files
+        shell: pwsh
+        run: |
+          python -c "import zipfile,pathlib; p=pathlib.Path(r'$env:RUNNER_TEMP/jm6-baseline-models'); z=zipfile.ZipFile(p/'Upscayl-Enhanced-jm6-Available-Models.zip'); assert z.testzip() is None; assert all(n.startswith('models/') or n=='model-package-manifest.json' for n in z.namelist()); z.extractall('.test-artifacts/png-models')"
+      - name: Prove lossless PNG encoding, size, alpha, channels, time and isolated peak RAM
+        shell: pwsh
+        run: |
+          $env:JM6_REFERENCE_ROOT = "$env:RUNNER_TEMP/jm6-baseline-diagnostics"
+          python tools/ci-command.py --label PNG-encoding --timeout-seconds 600 -- node tests/jobs/png-compression.cjs
+      - name: Targeted output protection, recovery integrity, image failures and long tiled PNG
+        run: python tools/ci-command.py --label targeted-core --timeout-seconds 300 -- node --test --test-concurrency=1 tests/jobs/recovery-integrity.test.cjs tests/jobs/output.test.cjs tests/jobs/image-errors.test.cjs tests/jobs/model-discovery.test.cjs tests/jobs/jm6-tiling.test.cjs
+      - name: Short actual ONNX stage failures and recovery (50-image test explicitly skipped)
+        run: python tools/ci-command.py --label short-pipeline --timeout-seconds 600 -- node --test tests/jobs/jm6-pipeline.test.cjs
+      - name: Build original renderer
+        run: python tools/ci-command.py --label renderer -- npm run build
+      - name: Check unchanged model selection and import UI
+        run: python tools/ci-command.py --label model-ui --timeout-seconds 180 -- node tests/jobs/jm6-models-ui.cjs
+      - name: Package Windows candidate, not a release
+        run: python tools/ci-command.py --label packaging -- npx electron-builder --win --x64 --config tools/enhanced-builder.cjs --publish never
+      - name: Verify both payloads, diagnostic tools, unchanged NCNN and runtime DLL hashes
+        run: python tools/ci-command.py --label verification -- python tools/verify-enhanced-windows.py
+      - name: Reuse exact Dev2 models ZIP and manifest (no conversion or model rebuilding)
+        shell: pwsh
+        run: |
+          Copy-Item "$env:RUNNER_TEMP/jm6-baseline-models/Upscayl-Enhanced-jm6-Available-Models.zip" 'dist-enhanced/'
+          Copy-Item "$env:RUNNER_TEMP/jm6-baseline-models/model-package-manifest.json" 'dist-enhanced/'
+          Copy-Item "$env:RUNNER_TEMP/jm6-baseline-models/models-SHA256.txt" 'dist-enhanced/'
+      - name: Clean packaged Alchemy, LUT, NCNN and two ordered pairs — CPU/software Vulkan
+        run: python tools/ci-command.py --label packaged-models --timeout-seconds 1200 -- node tests/jobs/jm6-packaged-models.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JM6-PNG-Installer-x64
+          path: |
+            dist-enhanced/*.exe
+            dist-enhanced/SHA256.txt
+            dist-enhanced/delivery-manifest.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JM6-PNG-Portable-x64
+          path: |
+            dist-enhanced/*-x64.zip
+            dist-enhanced/SHA256.txt
+            dist-enhanced/delivery-manifest.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JM6-PNG-Diagnostics
+          include-hidden-files: true
+          path: |
+            .test-artifacts/jm6/**/*.json
+            .test-artifacts/jm6/**/*.log
+            .test-artifacts/jm6/**/*.png
+            .test-artifacts/ci/
+            docs/jm6/png-storage.md
+            .test-artifacts/png-compression/results.json
+          if-no-files-found: ignore

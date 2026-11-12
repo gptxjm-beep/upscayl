@@ -71,8 +71,10 @@ const path=require('path');
 const file=process.argv[1];
 const read=n=>asar.extractFile(file,path.normalize(n)).toString();
 const pkg=JSON.parse(read('package.json'));
-if(pkg.version!=='2.15.0-jm.6-dev.2'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(pkg.version!=='2.15.0-jm.6-dev.3'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
 if(!read('export/electron/jobs/fdat-diagnostic.js').includes('tensor-probes-only'))throw Error('FDAT diagnostic absent');
+if(read('export/electron/jobs/onnx-worker.js')!==require('fs').readFileSync('export/electron/jobs/onnx-worker.js','utf8'))throw Error('Packaged PNG worker differs from tested compiled source');
+if(!read('export/electron/jobs/onnx-worker.js').includes('savedCompression'))throw Error('PNG compression fix absent');
 if(!read('export/electron/jobs/onnx-worker.js').includes('fdat-dml17-v1'))throw Error('FDAT correction absent');
 if(!read('export/electron/jobs/onnx-worker.js').includes('PipelineRuntime'))throw Error('ONNX worker missing');
 if(!read('export/electron/jobs/integration.js').includes('upscayl-jm.exe'))throw Error('Wrong engine route');
@@ -133,7 +135,7 @@ def main():
         subprocess.run([seven, 'x', str(archives[0]), '-o' + str(unpacked), '-y', '-bb0'], check=True)
         installer_check = verify_tree(unpacked, engine_hash)
         assert portable_check['asar_sha256'] == installer_check['asar_sha256'], 'Installer/ZIP app differs'
-    manifest = {'version': '2.15.0-jm.6-dev.2', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    manifest = {'version': '2.15.0-jm.6-dev.3', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                 'portable_payload': portable_check, 'installer_payload': installer_check,
                 'gpu_inference_tested': False,
                 'files': [{'name':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in installers + portable]}

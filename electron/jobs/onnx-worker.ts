@@ -9,7 +9,7 @@ import sharp from 'sharp';
 import * as ort from 'onnxruntime-node';
 import type {PipelineManifest} from '../../common/pipeline-models';
 export type StageModel={id:string;directory:string;engine:'onnx'|'ncnn';nativeScale:number;inputMultiple:number;minimum:number;halo:number;version:string;hash:string;manifest?:PipelineManifest;nativeEngine?:string;nativeHash?:string;fullPrecision?:boolean};
-export type StageOptions={tileSize:number;ttaMode:boolean;gpuId:string;compression:string;format:'png'|'jpg'|'webp';width?:number;height?:number;colorStrength?:number;colorStyle?:'natural'|'vivid';provider?:'cpu'|'dml';control?:string;fdatShapeMode?:'dynamic'|'static';diagnosticDirectory?:string;diagnosticContext?:Record<string,unknown>};
+export type StageOptions={tileSize:number;ttaMode:boolean;gpuId:string;compression:string;format:'png'|'jpg'|'webp';width?:number;height?:number;colorStrength?:number;colorStyle?:'natural'|'vivid';provider?:'cpu'|'dml';control?:string;temporaryPNG?:boolean;fdatShapeMode?:'dynamic'|'static';diagnosticDirectory?:string;diagnosticContext?:Record<string,unknown>};
 const ORT_VERSION='1.31.1',MAX_FRAME=0x7fffffff;
 sharp.cache({files:0});sharp.concurrency(2);
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -20,8 +20,13 @@ function dimensions(w:number,h:number){if(!Number.isSafeInteger(w)||!Number.isSa
 // Node can already create the same long Unicode path. Keep journal paths plain.
 const filesystemPath=(file:string)=>process.platform==='win32'?path.toNamespacedPath(file):file;
 const image=(file:string|Buffer)=>sharp(typeof file==='string'?filesystemPath(file):file,{failOn:'warning',limitInputPixels:false});
-async function encode(source:sharp.Sharp,file:string,options:StageOptions){
- if(options.format==='png')source=source.png({compressionLevel:Math.round(clamp(Number(options.compression)||0,0,100)*.09)});
+export async function encode(source:sharp.Sharp,file:string,options:StageOptions){
+ // PNG effort is lossless: saved compression=0 must never mean raw final PNG.
+ // Keep checkpoint/tile scratch encoding fast; JPG/WebP quality stays unchanged.
+ if(options.format==='png'){
+  const png=options.temporaryPNG?{compressionLevel:0}:{compressionLevel:6+Math.round(clamp(Number(options.compression)||0,0,100)*.03),adaptiveFiltering:true,palette:false};
+  source=source.png(png);log({event:'png-encode',file:path.basename(file),kind:options.temporaryPNG?'checkpoint':'final',savedCompression:options.compression,...png});
+ }
  else if(options.format==='jpg')source=source.jpeg({quality:clamp(100-Number(options.compression),1,100),chromaSubsampling:'4:4:4'});
  else source=source.webp({quality:clamp(100-Number(options.compression),1,100)});
  try{await source.toFile(filesystemPath(file));}catch(error){throw Object.assign(error as Error,{stage:'encode'});}
@@ -188,7 +193,7 @@ async function main(){
      if(gate())break;
      const model=request.models[part],last=part===request.models.length-1,target=last?item.output:item.checkpoint!+'.pending.png',size=last?item.final:item.middle!;
      stage(part===0?'STAGE1':'STAGE2',id);trace('START',id);
-     await runtime.stage(model,current,target,{...request.options,control,format:last?request.options.format:'png',compression:last?request.options.compression:'0',width:size[0],height:size[1]});
+     await runtime.stage(model,current,target,{...request.options,control,temporaryPNG:!last,format:last?request.options.format:'png',compression:last?request.options.compression:'0',width:size[0],height:size[1]});
      trace('END',id);failures[part]=0;
      if(!last){stage('CHECKPOINT',id);const accepted=await wait(path.join(control,id+'.stage1.ack'),path.join(control,id+'.reject'));if(!accepted){failed=true;active=undefined;stage('RELEASE',id);break;}current=item.checkpoint!;}
     }

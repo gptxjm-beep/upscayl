@@ -16,7 +16,7 @@
     "CHANGE_LANGUAGE": { "TITLE": "Change Language" },
     "IMAGE_COMPRESSION": {
       "TITLE": "Image Compression",
-      "DESCRIPTION": "PNG compression is lossless, so it might not reduce the file size significantly and higher compression values might affect the performance. JPG and WebP compression is lossy."
+      "DESCRIPTION": "PNG is always lossless. Its compression affects saving time and file size, never pixel quality. A value of 0 still uses efficient PNG compression. Higher JPG/WebP values reduce image quality."
     },
     "CUSTOM_MODELS": {
       "TITLE": "ADD CUSTOM MODELS",
