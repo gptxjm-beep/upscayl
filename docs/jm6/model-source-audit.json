@@ -1,5 +1,5 @@
 {
-  "scope": "JM6 available-model CPU functional validation. Windows preview acceptance pending; real NVIDIA GPU/DirectML untested.",
+  "scope": "Four available new models validated against original weights on Linux CPU and Windows Server 2022 CPU. Seven optional models accepted individually in the real packaged app, plus two ordered pairs. This is a preview, not complete JM6; real NVIDIA/DirectML and the two missing models remain untested.",
   "models": [
     {
       "id": "4x-illustrationjanai-v3detail-fdat-xl",
@@ -9,12 +9,12 @@
       "license": "CC-BY-NC-4.0",
       "originalWeightsSha256": "fbafec1f5a126c251de8a21e177e5a710ba2e75c7fd88fe989eb8df0508790c9",
       "originalGraphOrLutSha256": "2977da028b27424a17a9b3bfbd732033e9e02062d6849280fa67f334985e1245",
-      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "status": "Passed original-weight CPU reference, full output decode/dimensions, actual packaged-app Single and model-folder restart on Windows. GPU acceptance remains pending.",
       "engineLoaded": true,
       "actualInference": true,
       "standalone": true,
       "modelFilesPrepared": true,
-      "windowsValidated": false,
+      "windowsValidated": true,
       "realNvidiaTested": false,
       "derivedFiles": {
         "model": {
@@ -91,7 +91,13 @@
       "minimumPsnrDb": 56.12359947967774,
       "maximumPixelDifference": 1,
       "referenceInferenceTotalMs": 13670.728266,
-      "orderedPairTested": true
+      "orderedPairTested": true,
+      "windowsProvider": "cpu",
+      "windowsReferenceImages": 3,
+      "windowsPackagedSingleImages": 1,
+      "windowsRun": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265",
+      "referenceInferenceTimingScope": "Local Linux CPU measurements in the initial reference run; Windows timings are in the model manifests/diagnostics artifact. Not an RTX benchmark.",
+      "referenceMeasurementPlatform": "Linux CPU; Windows acceptance also passed, with separate timings in delivered model manifests."
     },
     {
       "id": "4x-illustrationjanai-v3denoise-fdat-xl",
@@ -101,12 +107,12 @@
       "license": "CC-BY-NC-4.0",
       "originalWeightsSha256": "3099fd76f427ee29513aa91dda02b9c1a54e0f7fdd08b653175655de798562f7",
       "originalGraphOrLutSha256": "1b41dc4d040ce50cdfb168dc75e43418817742390fdb4eb2dc3ac844a4e2d77f",
-      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "status": "Passed original-weight CPU reference, full output decode/dimensions, actual packaged-app Single and model-folder restart on Windows. GPU acceptance remains pending.",
       "engineLoaded": true,
       "actualInference": true,
       "standalone": true,
       "modelFilesPrepared": true,
-      "windowsValidated": false,
+      "windowsValidated": true,
       "realNvidiaTested": false,
       "derivedFiles": {
         "model": {
@@ -183,7 +189,13 @@
       "minimumPsnrDb": 57.15675827859562,
       "maximumPixelDifference": 1,
       "referenceInferenceTotalMs": 13159.548862,
-      "orderedPairTested": false
+      "orderedPairTested": false,
+      "windowsProvider": "cpu",
+      "windowsReferenceImages": 3,
+      "windowsPackagedSingleImages": 1,
+      "windowsRun": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265",
+      "referenceInferenceTimingScope": "Local Linux CPU measurements in the initial reference run; Windows timings are in the model manifests/diagnostics artifact. Not an RTX benchmark.",
+      "referenceMeasurementPlatform": "Linux CPU; Windows acceptance also passed, with separate timings in delivered model manifests."
     },
     {
       "id": "4x-ultrasharp-v2-dat2",
@@ -216,7 +228,8 @@
         }
       ],
       "filenameEvidence": "https://raw.githubusercontent.com/OpenModelDB/open-model-database/main/data/models/4x-UltraSharpV2.json",
-      "additionalRequirement": "Official model card/license verification; do not substitute Lite."
+      "additionalRequirement": "Official model card/license verification; do not substitute Lite.",
+      "windowsPackagedSingleImages": 0
     },
     {
       "id": "4x-alchemy",
@@ -226,12 +239,12 @@
       "license": "CC-BY-4.0",
       "originalWeightsSha256": "8bafb02ffcbc2fa6f25523f66b9a055bff4b2a851f8bbe34a2f382703eb1c953",
       "originalGraphOrLutSha256": null,
-      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "status": "Passed original-weight CPU reference, full output decode/dimensions, actual packaged-app Single and model-folder restart on Windows. GPU acceptance remains pending.",
       "engineLoaded": true,
       "actualInference": true,
       "standalone": true,
       "modelFilesPrepared": true,
-      "windowsValidated": false,
+      "windowsValidated": true,
       "realNvidiaTested": false,
       "derivedFiles": {
         "model": {
@@ -309,7 +322,13 @@
       "maximumPixelDifference": 1,
       "referenceInferenceTotalMs": 5282.213259,
       "orderedPairTested": true,
-      "architecture": "RealPLKSR, detected from original weights; dynamic DySample export validated on odd sizes and tiles"
+      "architecture": "RealPLKSR, detected from original weights; dynamic DySample export validated on odd sizes and tiles",
+      "windowsProvider": "cpu",
+      "windowsReferenceImages": 3,
+      "windowsPackagedSingleImages": 1,
+      "windowsRun": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265",
+      "referenceInferenceTimingScope": "Local Linux CPU measurements in the initial reference run; Windows timings are in the model manifests/diagnostics artifact. Not an RTX benchmark.",
+      "referenceMeasurementPlatform": "Linux CPU; Windows acceptance also passed, with separate timings in delivered model manifests."
     },
     {
       "id": "adaptivephotonet-6m",
@@ -335,7 +354,8 @@
           "url": "https://huggingface.co/Phitran21/AdaptivePhotoNet-6M-ONNX/tree/main",
           "reason": "Exact filenames and recipe contract cannot be confirmed: official API/tree denied CONNECT 403. No guessed filename or fake color processing."
         }
-      ]
+      ],
+      "windowsPackagedSingleImages": 0
     },
     {
       "id": "adaptive-3d-lut-srgb",
@@ -345,12 +365,12 @@
       "license": "Apache-2.0",
       "originalWeightsSha256": "bae9865395625ecae58cfe86147e521093bb1e29e7b2544e02adb238b8035021",
       "originalGraphOrLutSha256": "c1bb2bc4b7239c1a7e96159f5923123ba796b1fceb0b8c3132b423ea825b821a",
-      "status": "Original-weight CPU reference and full decoded output passed; available-model package prepared. Windows pending.",
+      "status": "Passed original-weight CPU reference, full output decode/dimensions, actual packaged-app Single and model-folder restart on Windows. GPU acceptance remains pending.",
       "engineLoaded": true,
       "actualInference": true,
       "standalone": true,
       "modelFilesPrepared": true,
-      "windowsValidated": false,
+      "windowsValidated": true,
       "realNvidiaTested": false,
       "derivedFiles": {
         "model": {
@@ -437,7 +457,13 @@
       "minimumPsnrDb": 77.50723608487773,
       "maximumPixelDifference": 1,
       "referenceInferenceTotalMs": 1032.658659,
-      "orderedPairTested": true
+      "orderedPairTested": true,
+      "windowsProvider": "cpu",
+      "windowsReferenceImages": 3,
+      "windowsPackagedSingleImages": 1,
+      "windowsRun": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265",
+      "referenceInferenceTimingScope": "Local Linux CPU measurements in the initial reference run; Windows timings are in the model manifests/diagnostics artifact. Not an RTX benchmark.",
+      "referenceMeasurementPlatform": "Linux CPU; Windows acceptance also passed, with separate timings in delivered model manifests."
     }
   ],
   "network": {
@@ -447,7 +473,7 @@
     "freshProbe": "CONNECT tunnel failed, response 403",
     "userUpdatedReusableEnvironment": true,
     "nextAction": "Attach a task to the newly saved/published environment, refresh environment_status, retry official model APIs and files.",
-    "lastFreshProbeUtc": "2026-11-11T14:46:31Z"
+    "lastFreshProbeUtc": "2026-11-12T04:02:04Z"
   },
   "orderedPairEvidence": [
     {
@@ -486,5 +512,54 @@
       "durationMs": 29510.613428,
       "scope": "Small derivatives of bundled comparison assets; CPU/software Vulkan functional test, not real-page quality or GPU performance."
     }
-  ]
+  ],
+  "delivery": {
+    "version": "2.15.0-jm.6-dev.1",
+    "sourceCommit": "5ad3b42e30c509b7584b9191c583019de852e502",
+    "successfulRun": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265",
+    "artifacts": [
+      {
+        "id": "13914741861",
+        "name": "JM6-Available-Models",
+        "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914741861",
+        "display": [
+          "JM6-Available-Models",
+          "205 MB",
+          "sha256:38202881fde4c3104e8e38a4b74738eab5bf332ec61c74211c647626c139516a"
+        ]
+      },
+      {
+        "id": "13914389052",
+        "name": "JM6-preview-Installer-x64",
+        "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914389052",
+        "display": [
+          "JM6-preview-Installer-x64",
+          "292 MB",
+          "sha256:c70b2ca2466fca1f51b377457dcac927e4911f2db1a9318e1a0652c019066db8"
+        ]
+      },
+      {
+        "id": "13914816442",
+        "name": "JM6-preview-Portable-x64",
+        "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914816442",
+        "display": [
+          "JM6-preview-Portable-x64",
+          "347 MB",
+          "sha256:cb84a935ff2e6fdb18f6444f898429758e244d05de81c9439cdb1c1be235fc08"
+        ]
+      },
+      {
+        "id": "13914543434",
+        "name": "JM6-test-diagnostics",
+        "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914543434",
+        "display": [
+          "JM6-test-diagnostics",
+          "1.03 MB",
+          "sha256:5c5839bb575b647a1b0a6c902161e6e10427ce32fa237b59282b1f1cb1e0f460"
+        ]
+      }
+    ],
+    "realNvidiaTested": false,
+    "host": "Windows Server 2022 GitHub runner; CPU/software Vulkan"
+  }
 }

@@ -43,3 +43,10 @@ Upscaler→color resizes to final dimensions before applying dimension-preservin
 - Real RTX 3060 Ti inference, DirectML operator coverage/performance/VRAM, representative full-resolution manga/manhwa quality, Explorer/external-viewer long PNG and power-loss disk durability remain practical acceptance items. CPU/software Vulkan acceptance cannot establish these.
 
 See [the Arabic continuation report](jm6/progress-ar.md) and [per-model source/validation evidence](jm6/model-source-audit.json). Original model inputs remain cached at `/workspace/.model-sources/jm6`; generated models/evidence are under `.test-artifacts/jm6`, outside Git. User-owned `renderer/next-env.d.ts` and `tools/benchmark` are excluded from JM6 commits.
+
+
+## Verified Windows preview delivery (2026-11-12)
+
+Application source commit: `5ad3b42e30c509b7584b9191c583019de852e502`. Successful run: https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265. Actual Installer and Portable were extracted and checked for the matching modified NCNN engine, all stock model files, compiled ONNX route, ONNX/DirectML x64 native files, notices and isolated Enhanced identity. Seven optional models ran individually through real packaged main IPC, two ordered pairs ran successfully, restart retained the selected model directory, and packaged drag/drop/long PNG preview passed. The later report-only commit changes no application source.
+
+See [Arabic delivery and missing-file report](jm6/progress-ar.md), [actual inner delivery hashes](jm6/SHA256.txt), [runner verification manifest](jm6/delivery-manifest.json) and [uploaded artifact IDs](jm6/windows-artifacts.json). Windows Server 2022 CPU/software Vulkan acceptance is not physical Windows 11/RTX/DirectML validation. The required Microsoft VC++ x64 runtime and vendor Vulkan driver are documented; private software Vulkan aliases are absent from delivered files.

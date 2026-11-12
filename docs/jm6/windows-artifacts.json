@@ -1,0 +1,42 @@
+[
+  {
+    "id": "13914741861",
+    "name": "JM6-Available-Models",
+    "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914741861",
+    "display": [
+      "JM6-Available-Models",
+      "205 MB",
+      "sha256:38202881fde4c3104e8e38a4b74738eab5bf332ec61c74211c647626c139516a"
+    ]
+  },
+  {
+    "id": "13914389052",
+    "name": "JM6-preview-Installer-x64",
+    "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914389052",
+    "display": [
+      "JM6-preview-Installer-x64",
+      "292 MB",
+      "sha256:c70b2ca2466fca1f51b377457dcac927e4911f2db1a9318e1a0652c019066db8"
+    ]
+  },
+  {
+    "id": "13914816442",
+    "name": "JM6-preview-Portable-x64",
+    "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914816442",
+    "display": [
+      "JM6-preview-Portable-x64",
+      "347 MB",
+      "sha256:cb84a935ff2e6fdb18f6444f898429758e244d05de81c9439cdb1c1be235fc08"
+    ]
+  },
+  {
+    "id": "13914543434",
+    "name": "JM6-test-diagnostics",
+    "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43151751265/artifacts/13914543434",
+    "display": [
+      "JM6-test-diagnostics",
+      "1.03 MB",
+      "sha256:5c5839bb575b647a1b0a6c902161e6e10427ce32fa237b59282b1f1cb1e0f460"
+    ]
+  }
+]

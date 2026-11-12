@@ -1,0 +1,47 @@
+{
+  "version": "2.15.0-jm.6-dev.1",
+  "commit": "5ad3b42e30c509b7584b9191c583019de852e502",
+  "portable_payload": {
+    "engine_sha256": "c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe",
+    "app_exe_sha256": "e2539c331c9b9e99ea652d5c53d7d4d484a965e697bcff543b106d86ae2a3456",
+    "asar_sha256": "5b0135e7b225a5be68d5a01149caf28c0028dc556d2ceca4936f90272eedd7a1",
+    "onnx_runtime_x64_sha256": {
+      "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+      "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+      "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d",
+      "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72"
+    },
+    "model_files_verified": 14,
+    "native_help_exit": 4294967295,
+    "native_direct_help_exit_hex": "0xc0000135",
+    "native_help_environment": "CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver"
+  },
+  "installer_payload": {
+    "engine_sha256": "c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe",
+    "app_exe_sha256": "e2539c331c9b9e99ea652d5c53d7d4d484a965e697bcff543b106d86ae2a3456",
+    "asar_sha256": "5b0135e7b225a5be68d5a01149caf28c0028dc556d2ceca4936f90272eedd7a1",
+    "onnx_runtime_x64_sha256": {
+      "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+      "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+      "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d",
+      "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72"
+    },
+    "model_files_verified": 14,
+    "native_help_exit": 4294967295,
+    "native_direct_help_exit_hex": "0xc0000135",
+    "native_help_environment": "CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver"
+  },
+  "gpu_inference_tested": false,
+  "files": [
+    {
+      "name": "Upscayl-Enhanced-2.15.0-jm.6-dev.1-x64.exe",
+      "size_bytes": 306306177,
+      "sha256": "256669000370453ffe91c8fd182ce828ff9a6017b794bb0333f222d60e5b9df0"
+    },
+    {
+      "name": "Upscayl-Enhanced-2.15.0-jm.6-dev.1-x64.zip",
+      "size_bytes": 363979925,
+      "sha256": "70eb66a07e1f90a90e821682c2812b49fe032eaef313668eda30d9e0fa2a8097"
+    }
+  ]
+}
