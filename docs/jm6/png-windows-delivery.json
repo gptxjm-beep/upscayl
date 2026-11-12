@@ -1,0 +1,85 @@
+{
+  "run": "https://github.com/gptxjm-beep/upscayl/actions/runs/43175710463",
+  "status": "Success",
+  "manifest": {
+    "version": "2.15.0-jm.6-dev.3",
+    "commit": "2dc549b2d387c91d2552cf80af08acbb50cb240c",
+    "portable_payload": {
+      "engine_sha256": "c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe",
+      "app_exe_sha256": "1bec792a4fff26fd6f17e53b227632b4210e067da7229cecce67495c1b399546",
+      "asar_sha256": "9e9b3e633a1b896a84112806ed7e42bfc5b39d840454473bf5a979ef37db178b",
+      "onnx_runtime_x64_sha256": {
+        "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+        "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+        "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d",
+        "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72"
+      },
+      "model_files_verified": 14,
+      "native_help_exit": 4294967295,
+      "native_direct_help_exit_hex": "0xc0000135",
+      "native_help_environment": "CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver"
+    },
+    "installer_payload": {
+      "engine_sha256": "c3deb7e1b90458622e2f1ce5f40910f51739c0e98b4d5bc14579726b30be70fe",
+      "app_exe_sha256": "1bec792a4fff26fd6f17e53b227632b4210e067da7229cecce67495c1b399546",
+      "asar_sha256": "9e9b3e633a1b896a84112806ed7e42bfc5b39d840454473bf5a979ef37db178b",
+      "onnx_runtime_x64_sha256": {
+        "onnxruntime_binding.node": "8d9f996ff7dcc60c4899aa87aa7abe07d806f9c314882f44a001d0fd8a23d16f",
+        "onnxruntime.dll": "beb6e1edba0e74c132453fe4df113da2ea2b99ef8ea7dfc25696a872efd11c45",
+        "DirectML.dll": "d16be72fa002dd610cca93e376f0ef44865dfce43de4b7bf9738af22534f7a9d",
+        "dxcompiler.dll": "430eed027979399769a325b60319aca4e4afa4daebe475d3c763dcf2a0190a72"
+      },
+      "model_files_verified": 14,
+      "native_help_exit": 4294967295,
+      "native_direct_help_exit_hex": "0xc0000135",
+      "native_help_environment": "CI-private-software-Vulkan-loader; production requires installed GPU Vulkan driver"
+    },
+    "gpu_inference_tested": false,
+    "files": [
+      {
+        "name": "Upscayl-Enhanced-2.15.0-jm.6-dev.3-x64.exe",
+        "size_bytes": 306312770,
+        "sha256": "d49d70e6e2fa667b020eebd98edb9928176d87cb46d130dbc330e01ab2b9d5b6"
+      },
+      {
+        "name": "Upscayl-Enhanced-2.15.0-jm.6-dev.3-x64.zip",
+        "size_bytes": 363988166,
+        "sha256": "d8ec9a05b73f348ff6c1f898bf49d471b7f1817acf929b35f90974ac24e6bf3f"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "id": "13924716007",
+      "name": "JM6-PNG-Diagnostics",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43175710463/artifacts/13924716007",
+      "display": [
+        "JM6-PNG-Diagnostics",
+        "293 KB",
+        "sha256:292b1a0401fa7a1e78b993c7c28053cd19fdeaee7db77bebda6c274b2038063c"
+      ]
+    },
+    {
+      "id": "13924970351",
+      "name": "JM6-PNG-Installer-x64",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43175710463/artifacts/13924970351",
+      "display": [
+        "JM6-PNG-Installer-x64",
+        "292 MB",
+        "sha256:1483e9c3fc6e48ea986431baf860d26da7ab8a4bd588b26a42677b1890024b5e"
+      ]
+    },
+    {
+      "id": "13924990352",
+      "name": "JM6-PNG-Portable-x64",
+      "url": "https://github.com/gptxjm-beep/upscayl/actions/runs/43175710463/artifacts/13924990352",
+      "display": [
+        "JM6-PNG-Portable-x64",
+        "347 MB",
+        "sha256:fd92f8bdf4e9f0147d46f1c18e93e8644307fa8e8e07da92200c62325f2640dc"
+      ]
+    }
+  ],
+  "realNvidiaGpuTested": false,
+  "notes": "Manifest comes from successful runner extraction/verification of actual NSIS and ZIP, not from a build configuration assumption."
+}

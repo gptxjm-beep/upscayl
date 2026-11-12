@@ -1,0 +1,304 @@
+{
+  "scope": "PNG storage only; no GPU benchmark or model-quality rerun",
+  "platform": "linux",
+  "arch": "x64",
+  "sharp": {
+    "aom": "3.9.1",
+    "archive": "3.7.4",
+    "cairo": "1.18.0",
+    "cgif": "0.4.1",
+    "exif": "0.6.24",
+    "expat": "2.6.2",
+    "ffi": "3.4.6",
+    "fontconfig": "2.15.0",
+    "freetype": "2.13.2",
+    "fribidi": "1.0.15",
+    "glib": "2.81.1",
+    "harfbuzz": "9.0.0",
+    "heif": "1.18.2",
+    "highway": "1.2.0",
+    "imagequant": "2.4.1",
+    "lcms": "2.16",
+    "mozjpeg": "4.1.5",
+    "pango": "1.54.0",
+    "pixman": "0.43.4",
+    "png": "1.6.43",
+    "proxy-libintl": "0.4",
+    "rsvg": "2.58.93",
+    "spng": "0.7.4",
+    "tiff": "4.6.0",
+    "vips": "8.15.3",
+    "webp": "1.4.0",
+    "xml": "2.13.3",
+    "zlib-ng": "2.2.1",
+    "sharp": "0.33.5"
+  },
+  "images": 7,
+  "results": [
+    {
+      "name": "colour-page",
+      "provenance": "Bundled illustration derivative; not the user's manhwa page.",
+      "layout": {
+        "width": 720,
+        "height": 1024,
+        "channels": 3,
+        "depth": "uchar",
+        "hasAlpha": false
+      },
+      "measurements": {
+        "old": {
+          "bytes": 2216513,
+          "durationMs": 34.649196,
+          "initialRssMiB": 62.02734375,
+          "sampledPeakRssMiB": 65.44921875,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 523291,
+          "durationMs": 142.865747,
+          "initialRssMiB": 61.69140625,
+          "sampledPeakRssMiB": 65.140625,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 492529,
+          "durationMs": 499.971217,
+          "initialRssMiB": 61.37109375,
+          "sampledPeakRssMiB": 64.92578125,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 76.39125058143128
+    },
+    {
+      "name": "text",
+      "provenance": "Controlled text/edge fixture.",
+      "layout": {
+        "width": 720,
+        "height": 1024,
+        "channels": 4,
+        "depth": "uchar",
+        "hasAlpha": true
+      },
+      "measurements": {
+        "old": {
+          "bytes": 2954978,
+          "durationMs": 16.300291,
+          "initialRssMiB": 61.5234375,
+          "sampledPeakRssMiB": 65.80078125,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 16347,
+          "durationMs": 74.732821,
+          "initialRssMiB": 61.7890625,
+          "sampledPeakRssMiB": 65.703125,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 17708,
+          "durationMs": 90.417153,
+          "initialRssMiB": 61.58984375,
+          "sampledPeakRssMiB": 65.7421875,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 99.44679791186263
+    },
+    {
+      "name": "gradient",
+      "provenance": "Controlled RGB gradients.",
+      "layout": {
+        "width": 512,
+        "height": 384,
+        "channels": 3,
+        "depth": "uchar",
+        "hasAlpha": false
+      },
+      "measurements": {
+        "old": {
+          "bytes": 591246,
+          "durationMs": 11.794475,
+          "initialRssMiB": 61.4296875,
+          "sampledPeakRssMiB": 63.5078125,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 1700,
+          "durationMs": 21.94223,
+          "initialRssMiB": 61.41015625,
+          "sampledPeakRssMiB": 63.9375,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 1268,
+          "durationMs": 23.164824,
+          "initialRssMiB": 61.859375,
+          "sampledPeakRssMiB": 64.61328125,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 99.71247162771503
+    },
+    {
+      "name": "alpha",
+      "provenance": "Controlled RGBA including hidden RGB under zero alpha.",
+      "layout": {
+        "width": 512,
+        "height": 384,
+        "channels": 4,
+        "depth": "uchar",
+        "hasAlpha": true
+      },
+      "measurements": {
+        "old": {
+          "bytes": 788177,
+          "durationMs": 8.683612,
+          "initialRssMiB": 61.6015625,
+          "sampledPeakRssMiB": 63.875,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 3429,
+          "durationMs": 26.300345,
+          "initialRssMiB": 61.453125,
+          "sampledPeakRssMiB": 64.48046875,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 2370,
+          "durationMs": 28.205061,
+          "initialRssMiB": 61.20703125,
+          "sampledPeakRssMiB": 64.40234375,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 99.56494543738272
+    },
+    {
+      "name": "long-1440x12240",
+      "provenance": "Bundled illustration stretched solely as an encoding fixture matching reported output dimensions; not inference on 000558.jpg.",
+      "layout": {
+        "width": 1440,
+        "height": 12240,
+        "channels": 3,
+        "depth": "uchar",
+        "hasAlpha": false
+      },
+      "measurements": {
+        "old": {
+          "bytes": 52974263,
+          "durationMs": 388.847836,
+          "initialRssMiB": 61.2890625,
+          "sampledPeakRssMiB": 67.0078125,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 3860596,
+          "durationMs": 1912.080336,
+          "initialRssMiB": 62.04296875,
+          "sampledPeakRssMiB": 67.625,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 3561648,
+          "durationMs": 7494.207772,
+          "initialRssMiB": 62.04296875,
+          "sampledPeakRssMiB": 67.7109375,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 92.7123176777372
+    },
+    {
+      "name": "4x-alchemy-reference",
+      "provenance": "Previously independently generated original-weight reference output, reused unchanged; no new inference.",
+      "layout": {
+        "width": 48,
+        "height": 388,
+        "channels": 3,
+        "depth": "uchar",
+        "hasAlpha": false
+      },
+      "measurements": {
+        "old": {
+          "bytes": 56426,
+          "durationMs": 6.50575,
+          "initialRssMiB": 61.5703125,
+          "sampledPeakRssMiB": 62.94140625,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 18508,
+          "durationMs": 9.249409,
+          "initialRssMiB": 61.6015625,
+          "sampledPeakRssMiB": 62.80859375,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 17455,
+          "durationMs": 25.21446,
+          "initialRssMiB": 61.40625,
+          "sampledPeakRssMiB": 62.85546875,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 67.19951795271683
+    },
+    {
+      "name": "adaptive-3d-lut-srgb-reference",
+      "provenance": "Previously independently generated original-weight reference output, reused unchanged; no new inference.",
+      "layout": {
+        "width": 12,
+        "height": 70200,
+        "channels": 3,
+        "depth": "uchar",
+        "hasAlpha": false
+      },
+      "measurements": {
+        "old": {
+          "bytes": 2601688,
+          "durationMs": 102.897084,
+          "initialRssMiB": 61.59375,
+          "sampledPeakRssMiB": 62.78125,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 71683,
+          "durationMs": 170.275738,
+          "initialRssMiB": 61.6640625,
+          "sampledPeakRssMiB": 63.20703125,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 51651,
+          "durationMs": 239.265147,
+          "initialRssMiB": 61.38671875,
+          "sampledPeakRssMiB": 62.8203125,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "pixelDifference": 0,
+      "sourcePreserved": true,
+      "reductionPercent": 97.24475033132336
+    }
+  ],
+  "checkpointBytesUnchanged": true,
+  "jpgWebpBytesUnchanged": true,
+  "maxPixelDifference": 0,
+  "chosenMinimumLevel": 6,
+  "paletteOrQuantization": false,
+  "notes": "Level9 measured for comparison; default6 balances file size with encode CPU cost. Timings are one encoding-only observation per variant, not inference throughput. RSS is sampled every10ms in each encoding child, including initial/end readings; short native peaks may be missed. No universal RAM bound inferred. Linux pre-exec inherited high-water RSS is deliberately not used."
+}

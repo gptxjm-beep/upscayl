@@ -1,0 +1,2 @@
+d49d70e6e2fa667b020eebd98edb9928176d87cb46d130dbc330e01ab2b9d5b6  Upscayl-Enhanced-2.15.0-jm.6-dev.3-x64.exe
+d8ec9a05b73f348ff6c1f898bf49d471b7f1817acf929b35f90974ac24e6bf3f  Upscayl-Enhanced-2.15.0-jm.6-dev.3-x64.zip

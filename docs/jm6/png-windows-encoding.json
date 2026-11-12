@@ -1,0 +1,197 @@
+{
+  "images": 7,
+  "maxPixelDifference": 0,
+  "checkpointBytesUnchanged": true,
+  "jpgWebpBytesUnchanged": true,
+  "results": [
+    {
+      "name": "colour-page",
+      "measurements": {
+        "old": {
+          "bytes": 2216513,
+          "durationMs": 15.0723,
+          "initialRssMiB": 41.90625,
+          "sampledPeakRssMiB": 42.66015625,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 523291,
+          "durationMs": 84.3806,
+          "initialRssMiB": 41.78125,
+          "sampledPeakRssMiB": 44.8125,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 492529,
+          "durationMs": 319.1643,
+          "initialRssMiB": 42.0546875,
+          "sampledPeakRssMiB": 45.07421875,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 76.39125058143128
+    },
+    {
+      "name": "text",
+      "measurements": {
+        "old": {
+          "bytes": 2954978,
+          "durationMs": 10.5948,
+          "initialRssMiB": 42.22265625,
+          "sampledPeakRssMiB": 42.75390625,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 16665,
+          "durationMs": 57.336,
+          "initialRssMiB": 41.8984375,
+          "sampledPeakRssMiB": 45.4765625,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 17918,
+          "durationMs": 73.311,
+          "initialRssMiB": 42.140625,
+          "sampledPeakRssMiB": 45.75,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 99.43603641042336
+    },
+    {
+      "name": "gradient",
+      "measurements": {
+        "old": {
+          "bytes": 591246,
+          "durationMs": 7.8013,
+          "initialRssMiB": 41.921875,
+          "sampledPeakRssMiB": 42.87109375,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 1700,
+          "durationMs": 17.056,
+          "initialRssMiB": 42.015625,
+          "sampledPeakRssMiB": 43.7109375,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 1268,
+          "durationMs": 18.0212,
+          "initialRssMiB": 41.90625,
+          "sampledPeakRssMiB": 42.69140625,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 99.71247162771503
+    },
+    {
+      "name": "alpha",
+      "measurements": {
+        "old": {
+          "bytes": 788177,
+          "durationMs": 8.3878,
+          "initialRssMiB": 41.859375,
+          "sampledPeakRssMiB": 42.875,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 3429,
+          "durationMs": 20.9947,
+          "initialRssMiB": 42.10546875,
+          "sampledPeakRssMiB": 44.62109375,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 2370,
+          "durationMs": 21.8411,
+          "initialRssMiB": 42.02734375,
+          "sampledPeakRssMiB": 44.578125,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 99.56494543738272
+    },
+    {
+      "name": "long-1440x12240",
+      "measurements": {
+        "old": {
+          "bytes": 52974263,
+          "durationMs": 112.6309,
+          "initialRssMiB": 41.890625,
+          "sampledPeakRssMiB": 46.83203125,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 3860596,
+          "durationMs": 1304.6272,
+          "initialRssMiB": 42.27734375,
+          "sampledPeakRssMiB": 47.41015625,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 3561648,
+          "durationMs": 4255.127,
+          "initialRssMiB": 42.22265625,
+          "sampledPeakRssMiB": 47.40234375,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 92.7123176777372
+    },
+    {
+      "name": "4x-alchemy-reference",
+      "measurements": {
+        "old": {
+          "bytes": 56426,
+          "durationMs": 6.6776,
+          "initialRssMiB": 42.14453125,
+          "sampledPeakRssMiB": 42.89453125,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 18508,
+          "durationMs": 9.5196,
+          "initialRssMiB": 42.12890625,
+          "sampledPeakRssMiB": 42.9375,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 17455,
+          "durationMs": 19.2101,
+          "initialRssMiB": 42.21875,
+          "sampledPeakRssMiB": 43.47265625,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 67.19951795271683
+    },
+    {
+      "name": "adaptive-3d-lut-srgb-reference",
+      "measurements": {
+        "old": {
+          "bytes": 2601688,
+          "durationMs": 39.5387,
+          "initialRssMiB": 42.02734375,
+          "sampledPeakRssMiB": 43.15625,
+          "rssSampleIntervalMs": 10
+        },
+        "new6": {
+          "bytes": 71689,
+          "durationMs": 109.6959,
+          "initialRssMiB": 42.109375,
+          "sampledPeakRssMiB": 43.28125,
+          "rssSampleIntervalMs": 10
+        },
+        "new9": {
+          "bytes": 51651,
+          "durationMs": 149.0196,
+          "initialRssMiB": 42.12890625,
+          "sampledPeakRssMiB": 43.328125,
+          "rssSampleIntervalMs": 10
+        }
+      },
+      "reductionPercent": 97.24451971181787
+    }
+  ]
+}
