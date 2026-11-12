@@ -147,7 +147,7 @@ export class BatchManager extends EventEmitter {
   }
   private pipelineSignature(settings:BatchUpscaylPayload){
     const ids=[settings.model,...settings.useTwoModels?[settings.secondModel!]:[]];
-    const plan=ids.map(id=>{const m=PIPELINE_MODELS[id],legacy=modelMetadata(id);return m?{id,engine:m.engine,task:m.task,version:m.version,nativeScale:m.nativeScale,inputMultiple:m.inputMultiple,minimum:m.minimum,halo:m.halo}:{id,engine:'ncnn',nativeScale:getModelScale(id),inputMultiple:legacy?.inputMultiple||1,prepadding:legacy?.prepadding,fullPrecision:legacy?.fullPrecision};});
+    const plan=ids.map(id=>{const m=PIPELINE_MODELS[id],legacy=modelMetadata(id);return m?{id,engine:m.engine,task:m.task,version:m.version,nativeScale:m.nativeScale,inputMultiple:m.inputMultiple,minimum:m.minimum,halo:m.halo,...(m.graphVersion?{graphVersion:m.graphVersion,opset:m.opset}:{} )}:{id,engine:'ncnn',nativeScale:getModelScale(id),inputMultiple:legacy?.inputMultiple||1,prepadding:legacy?.prepadding,fullPrecision:legacy?.fullPrecision};});
     return crypto.createHash('sha256').update(JSON.stringify({plan,ort:'1.31.1',provider:process.env.JM6_PROVIDER||(process.platform==='win32'?'dml':'cpu')})).digest('hex');
   }
   private async modelHash(dir: string, model: string) {

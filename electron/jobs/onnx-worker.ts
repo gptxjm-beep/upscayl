@@ -9,7 +9,7 @@ import sharp from 'sharp';
 import * as ort from 'onnxruntime-node';
 import type {PipelineManifest} from '../../common/pipeline-models';
 export type StageModel={id:string;directory:string;engine:'onnx'|'ncnn';nativeScale:number;inputMultiple:number;minimum:number;halo:number;version:string;hash:string;manifest?:PipelineManifest;nativeEngine?:string;nativeHash?:string;fullPrecision?:boolean};
-export type StageOptions={tileSize:number;ttaMode:boolean;gpuId:string;compression:string;format:'png'|'jpg'|'webp';width?:number;height?:number;colorStrength?:number;colorStyle?:'natural'|'vivid';provider?:'cpu'|'dml';control?:string};
+export type StageOptions={tileSize:number;ttaMode:boolean;gpuId:string;compression:string;format:'png'|'jpg'|'webp';width?:number;height?:number;colorStrength?:number;colorStyle?:'natural'|'vivid';provider?:'cpu'|'dml';control?:string;fdatShapeMode?:'dynamic'|'static';diagnosticDirectory?:string;diagnosticContext?:Record<string,unknown>};
 const ORT_VERSION='1.31.1',MAX_FRAME=0x7fffffff;
 sharp.cache({files:0});sharp.concurrency(2);
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -45,28 +45,58 @@ export async function applyLut(rgb:Buffer,basis:Float32Array,weights:Float32Arra
  }
  return out;
 }
+export function runtimeErrorCode(error:unknown):string|undefined{
+ const message=String(error),match=/\b(?:0x)?([89a-f][0-9a-f]{7})\b/i.exec(message);
+ return match?'0x'+match[1].toUpperCase():undefined;
+}
+function runtimeError(error:unknown,context:Record<string,unknown>){
+ const value=error instanceof Error?error:new Error(String(error));
+ return Object.assign(value,{runtimeDiagnostic:{...context,code:runtimeErrorCode(value),exception:String(value)}});
+}
+function protocolCode(error:unknown){const code=runtimeErrorCode(error);return code?(parseInt(code.slice(2),16)|0):-1;}
+export function fdatSessionOptions(model:StageModel,options:StageOptions,width:number,height:number):ort.InferenceSession.SessionOptions{
+ const provider=options.provider||(process.platform==='win32'?'dml':'cpu');
+ const result:ort.InferenceSession.SessionOptions={executionProviders:provider==='dml'?[{name:'dml',deviceId:Number(options.gpuId)||0}]:['cpu'],executionMode:'sequential',enableMemPattern:false,intraOpNumThreads:2,interOpNumThreads:1};
+ if(provider==='dml'&&model.manifest?.graphVersion==='fdat-dml17-v1'&&options.fdatShapeMode!=='dynamic'){
+  const symbols=model.manifest.spatialSymbols;if(!symbols||symbols.length!==2||!symbols.every(Boolean)||symbols[0]===symbols[1])throw Error('FDAT spatial dimension metadata is missing. Import the corrected models package.');
+  result.freeDimensionOverrides={[symbols[0]]:height,[symbols[1]]:width};
+ }
+ if(options.diagnosticDirectory){fs.mkdirSync(options.diagnosticDirectory,{recursive:true});result.enableProfiling=true;result.profileFilePrefix=path.join(options.diagnosticDirectory,model.id+'-'+provider+'-'+height+'x'+width);result.logSeverityLevel=0;result.logVerbosityLevel=1;result.logId=model.id;}
+ return result;
+}
 export class PipelineRuntime{
- private resident?:{id:string;session:ort.InferenceSession};
- async release(){if(this.resident){const current=this.resident;this.resident=undefined;await current.session.release();}}
- private async load(model:StageModel,options:StageOptions){
-  if(this.resident?.id===model.id)return this.resident.session;
-  await this.release();const m=model.manifest;if(!m)throw Error('Verified model manifest is missing.');
-  for(const f of Object.values(m.files))if(await digest(path.join(model.directory,f.name))!==f.sha256)throw Error('Model files changed before loading.');
-  if(ort.env.versions.node!==ORT_VERSION)throw Error('ONNX Runtime version changed.');
-  const provider=options.provider||(process.platform==='win32'?'dml':'cpu');
-  if(!ort.listSupportedBackends().some(b=>b.name===provider&&b.bundled))throw Error(`Required ONNX execution provider ${provider} is not available.`);
-  const session=await ort.InferenceSession.create(path.join(model.directory,m.files.model.name),{executionProviders:provider==='dml'?[{name:'dml',deviceId:Number(options.gpuId)||0}]:['cpu'],executionMode:'sequential',enableMemPattern:false,intraOpNumThreads:2,interOpNumThreads:1});
-  this.resident={id:model.id,session};log({event:'model-loaded',id:model.id,version:model.version,hash:model.hash,graphSha256:m.files.model.sha256,sourceSha256:m.sourceSha256,provider,device:options.gpuId,residency:'one-onnx-session',runtime:ORT_VERSION});return session;
+ private resident?:{key:string;session:ort.InferenceSession;firstRun:boolean;context:Record<string,unknown>;profiling:boolean};
+ async release(){if(this.resident){const current=this.resident;this.resident=undefined;if(current.profiling)try{current.session.endProfiling();}catch(error){log({event:'profiling-error',error:String(error)});}await current.session.release();}}
+ private async load(model:StageModel,options:StageOptions,width:number,height:number){
+  const provider=options.provider||(process.platform==='win32'?'dml':'cpu'),m=model.manifest;
+  const specialised=provider==='dml'&&m?.graphVersion==='fdat-dml17-v1'&&options.fdatShapeMode!=='dynamic';
+  const key=model.id+'|'+provider+'|'+model.hash+(specialised?'|'+height+'x'+width:'')+'|'+(options.diagnosticDirectory||'');
+  if(this.resident?.key===key)return this.resident;
+  await this.release();if(!m)throw Error('Verified model manifest is missing.');
+  const context={model:model.id,engine:model.engine,provider,deviceIndex:Number(options.gpuId)||0,runtime:ORT_VERSION,modelVersion:model.version,graphVersion:m.graphVersion,modelHash:model.hash,graphSha256:m.files.model.sha256,sourceSha256:m.sourceSha256,shapeMode:specialised?'static-spatial':'dynamic',...options.diagnosticContext};
+  try{
+   for(const f of Object.values(m.files))if(await digest(path.join(model.directory,f.name))!==f.sha256)throw Error('Model files changed before loading.');
+   if(ort.env.versions.node!==ORT_VERSION)throw Error('ONNX Runtime version changed.');
+   if(!ort.listSupportedBackends().some(b=>b.name===provider&&b.bundled))throw Error(`Required ONNX execution provider ${provider} is not available.`);
+   const configuration=fdatSessionOptions(model,options,width,height);
+   const session=await ort.InferenceSession.create(path.join(model.directory,m.files.model.name),configuration);
+   this.resident={key,session,firstRun:true,context,profiling:!!options.diagnosticDirectory};
+   log({event:'model-loaded',...context,freeDimensionOverrides:configuration.freeDimensionOverrides,residency:'one-onnx-session'});return this.resident;
+  }catch(error){throw runtimeError(error,{...context,phase:'model-load',tensorShape:[1,3,height,width],dtype:'float32'});}
  }
  async predict(model:StageModel,input:Float32Array,width:number,height:number,options:StageOptions){
-  const session=await this.load(model,options),m=model.manifest!,out=await session.run({[m.input]:new ort.Tensor('float32',input,[1,3,height,width])});
-  const tensor=out[m.output];if(!tensor||tensor.type!=='float32')throw Error('Unexpected ONNX output tensor type.');return tensor;
+  const resident=await this.load(model,options,width,height),m=model.manifest!,context={...resident.context,...options.diagnosticContext,phase:'inference',tensorShape:[1,3,height,width],dtype:'float32',inputBytes:input.byteLength};
+  try{
+   if(resident.firstRun){log({event:'inference-start',...context});resident.firstRun=false;}
+   const out=await resident.session.run({[m.input]:new ort.Tensor('float32',input,[1,3,height,width])});
+   const tensor=out[m.output];if(!tensor||tensor.type!=='float32')throw Error('Unexpected ONNX output tensor type.');return tensor;
+  }catch(error){throw runtimeError(error,context);}
  }
  private async infer(model:StageModel,rgb:Buffer,w:number,h:number,options:StageOptions){
   const source=chw(rgb,w,h),ow=w*model.nativeScale,oh=h*model.nativeScale,result=new Float32Array(3*ow*oh),passes=options.ttaMode?8:1;
   for(let pass=0;pass<passes;pass++){
    const swap=!!(pass&4),fx=!!(pass&1),fy=!!(pass&2),input=pass?orient(source,w,h,swap,fx,fy):{data:source,width:w,height:h};
-   const output=await this.predict(model,input.data,input.width,input.height,options),vw=input.width*model.nativeScale,vh=input.height*model.nativeScale;
+   const output=await this.predict(model,input.data,input.width,input.height,{...options,diagnosticContext:{...options.diagnosticContext,ttaPass:pass}}),vw=input.width*model.nativeScale,vh=input.height*model.nativeScale;
    if(output.dims.join(',')!==[1,3,vh,vw].join(','))throw Error('Model output dimensions do not match the declared native scale.');
    const values=output.data as Float32Array;
    for(let c=0;c<3;c++)for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){const a=fx?ow-1-x:x,b=fy?oh-1-y:y,tx=swap?b:a,ty=swap?a:b;result[c*ow*oh+y*ow+x]+=values[c*vw*vh+ty*vw+tx]/passes;}
@@ -75,7 +105,7 @@ export class PipelineRuntime{
  }
  async stage(model:StageModel,input:string,output:string,options:StageOptions){
   const meta=await image(input).metadata().catch(error=>{throw Object.assign(error,{stage:'decode'});});if(!meta.width||!meta.height||!['png','jpeg','webp'].includes(meta.format||''))throw Object.assign(Error('Source cannot be decoded.'),{stage:'decode'});
-  const w=meta.width,h=meta.height;dimensions(w,h);dimensions(w*model.nativeScale,h*model.nativeScale);
+  const w=meta.width,h=meta.height;options={...options,diagnosticContext:{...options.diagnosticContext,image:path.basename(input),imageDimensions:[w,h],finalDimensions:options.width?[options.width,options.height]:[w*model.nativeScale,h*model.nativeScale]}};dimensions(w,h);dimensions(w*model.nativeScale,h*model.nativeScale);
   if(model.engine==='ncnn'){await this.native(model,input,output,options);return;}
   if(model.manifest?.task==='color-lut'){
    if(w*h*6>Math.min(1024**3,os.freemem()/2))throw Error('Insufficient RAM for the dimension-preserving color stage.');
@@ -98,7 +128,7 @@ export class PipelineRuntime{
     for(let x=0;x<w;x+=tile){
      const cw=Math.min(tile,w-x),left=Math.max(0,x-halo),top=Math.max(0,y-halo),width=Math.min(w,x+cw+halo)-left,height=Math.min(h,y+ch+halo)-top,pw=Math.max(model.minimum,Math.ceil(width/multiple)*multiple),ph=Math.max(model.minimum,Math.ceil(height/multiple)*multiple);
      const rgb=await image(input).extract({left,top,width,height}).extend({right:pw-width,bottom:ph-height,left:0,top:0,extendWith:'mirror'}).removeAlpha().toColourspace('srgb').raw().toBuffer();
-     const out=await this.infer(model,rgb,pw,ph,options),file=path.join(work,String(index++)+'.png');
+     const out=await this.infer(model,rgb,pw,ph,{...options,diagnosticContext:{...options.diagnosticContext,tileIndex:index,tileOrigin:[x,y],tileCore:[cw,ch],halo,tileTensor:[pw,ph]}}),file=path.join(work,String(index++)+'.png');
      await sharp(out.data,{raw:{width:out.width,height:out.height,channels:3},limitInputPixels:false}).extract({left:(x-left)*scale,top:(y-top)*scale,width:cw*scale,height:ch*scale}).png({compressionLevel:0}).toFile(filesystemPath(file));row.push({input:filesystemPath(file),left:x*scale,top:0});
     }
     const file=path.join(work,'stripe-'+y+'.png');await sharp({create:{width:w*scale,height:ch*scale,channels:3,background:'black'},limitInputPixels:false}).composite(row).png({compressionLevel:0}).toFile(filesystemPath(file));for(const f of row)fs.rmSync(f.input);stripes.push({input:filesystemPath(file),left:0,top:y*scale,width:w*scale,height:ch*scale});
@@ -165,10 +195,10 @@ async function main(){
     if(part===request.models.length){stage('VERIFY',id);event(id,true,'encode',0);await wait(path.join(control,id+'.final.ack'));active=undefined;stage('RELEASE',id);}
    }catch(error){
     failed=true;const code=(error as NodeJS.ErrnoException).code,description=String(error),kind=(error as any).stage||(/decode|pngload|jpegload|unsupported image/i.test(description)?'decode':part===0?'stageone':'stagetwo');
-    log({event:'image-failure',id,file:path.basename(item.source),stage:kind,code,error:description});
-    const global=kind!=='decode'&&/ENOSPC|EDQUOT|EACCES|EPERM|EROFS|EIO/.test(code||'')?'disk':/execution provider|model files changed|ONNX Runtime version|manifest is missing|Load model|load_param|load_model|model load|implementation for|Protobuf parsing|InvalidProtobuf|NCNN bridge engine changed/i.test(description)?'model':/out of memory|Insufficient RAM|bad_alloc|E_OUTOFMEMORY|DXGI_ERROR_DEVICE|device lost/i.test(description)?'memory':undefined;
-    if(global)fatal(global,-1,error);else if(!['decode','dimensions'].includes(kind)&&++failures[Math.min(part,1)]>=3)fatal('inference-global',-1,error);
-    event(id,false,kind,-1);if(!jobFailed)await wait(path.join(control,id+'.final.ack'));active=undefined;stage('RELEASE',id);
+    log({event:'image-failure',id,file:path.basename(item.source),stage:kind,code:runtimeErrorCode(error)||code,error:description,diagnostic:(error as any).runtimeDiagnostic});
+    const global=kind!=='decode'&&/ENOSPC|EDQUOT|EACCES|EPERM|EROFS|EIO/.test(code||'')?'disk':/execution provider|model files changed|ONNX Runtime version|manifest is missing|Load model|load_param|load_model|model load|implementation for|Protobuf parsing|InvalidProtobuf|NCNN bridge engine changed/i.test(description)?'model':/DXGI_ERROR_DEVICE|device lost|887a000[567]/i.test(description)?'device':/out of memory|Insufficient RAM|bad_alloc|E_OUTOFMEMORY|8007000e/i.test(description)?'memory':(error as any).runtimeDiagnostic?.phase==='model-load'?'model':undefined;
+    if(global)fatal(global,protocolCode(error),error);else if(!['decode','dimensions'].includes(kind)&&++failures[Math.min(part,1)]>=3)fatal('inference-global',-1,error);
+    event(id,false,kind,protocolCode(error));if(!jobFailed)await wait(path.join(control,id+'.final.ack'));active=undefined;stage('RELEASE',id);
    }
   }
  }catch(error){fatal('worker',-1,error);}

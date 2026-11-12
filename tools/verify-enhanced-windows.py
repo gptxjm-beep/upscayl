@@ -61,6 +61,8 @@ def verify_tree(folder, engine_hash):
     assert not (native.parent/'arm64').exists(), 'Unexpected ARM64 inference payload'
     for name in ['ONNX-Runtime-MIT.txt','ONNX-Runtime-ThirdPartyNotices.txt','DirectML-1.15.4.txt','DirectXShaderCompiler-LICENSE.txt','JM6-runtime-sources.json']:
         assert sha(folder/'resources/licenses'/name)==sha(ROOT/'resources/licenses'/name)
+    for original in (ROOT/'resources/diagnostics').iterdir():
+        assert sha(folder/'resources/diagnostics'/original.name)==sha(original), 'Missing diagnostic tool'
     archive = folder / 'resources/app.asar'
     # Test compiled routing/identity in the archive that will actually be delivered.
     script = r'''
@@ -69,7 +71,9 @@ const path=require('path');
 const file=process.argv[1];
 const read=n=>asar.extractFile(file,path.normalize(n)).toString();
 const pkg=JSON.parse(read('package.json'));
-if(pkg.version!=='2.15.0-jm.6-dev.1'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(pkg.version!=='2.15.0-jm.6-dev.2'||pkg.productName!=='Upscayl Enhanced')throw Error('Wrong package identity');
+if(!read('export/electron/jobs/fdat-diagnostic.js').includes('tensor-probes-only'))throw Error('FDAT diagnostic absent');
+if(!read('export/electron/jobs/onnx-worker.js').includes('fdat-dml17-v1'))throw Error('FDAT correction absent');
 if(!read('export/electron/jobs/onnx-worker.js').includes('PipelineRuntime'))throw Error('ONNX worker missing');
 if(!read('export/electron/jobs/integration.js').includes('upscayl-jm.exe'))throw Error('Wrong engine route');
 if(!read('export/electron/jobs/manager.js').includes('completed-with-errors'))throw Error('Image error completion handling absent');
@@ -129,7 +133,7 @@ def main():
         subprocess.run([seven, 'x', str(archives[0]), '-o' + str(unpacked), '-y', '-bb0'], check=True)
         installer_check = verify_tree(unpacked, engine_hash)
         assert portable_check['asar_sha256'] == installer_check['asar_sha256'], 'Installer/ZIP app differs'
-    manifest = {'version': '2.15.0-jm.6-dev.1', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+    manifest = {'version': '2.15.0-jm.6-dev.2', 'commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                 'portable_payload': portable_check, 'installer_payload': installer_check,
                 'gpu_inference_tested': False,
                 'files': [{'name':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in installers + portable]}

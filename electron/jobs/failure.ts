@@ -3,8 +3,10 @@ import type { BatchFailure } from '../../common/types/batch-ui';
 export function describeFailure(details:string,image?:string,stage?:string,code?:string):BatchFailure {
   const nativeCode=code&&Number.isFinite(Number(code))?(Number(code)>>>0).toString(16):'';
   const evidence=details+' '+nativeCode;
+  const actual=/\b(?:0x)?(8[0-9a-f]{7})\b/i.exec(evidence);if(actual)code='0x'+actual[1].toUpperCase();
   let reason='Processing could not finish. Your completed images and recovery progress have been kept.';
   if(/ENOSPC|EDQUOT|80070070|80030070|80070027|disk full/i.test(evidence)||stage==='disk'||code==='-28'&&['encode','checkpoint'].includes(stage||''))reason='The output disk is full. Free space before resuming the job.';
+  else if(/8007023e/i.test(evidence)&&/DirectML|DmlExecutionProvider|MemcpyFromHost|\"provider\":\"dml\"/i.test(details))reason='DirectML could not execute this model on the selected GPU (0x8007023E). The original exception and tile details are in Logs; this code alone does not establish a memory shortage.';
   else if(stage==='model')reason='The AI model could not be loaded. Processing stopped to protect the job.';
   else if(stage==='validation-global')reason='Repeated image validation failures stopped the job. Your completed files and recovery data were preserved.';
   else if(stage==='encode-global'||stage==='destination')reason='Repeated output or destination failures stopped the job. Check free space and write permissions.';

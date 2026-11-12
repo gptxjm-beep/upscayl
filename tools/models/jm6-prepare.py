@@ -53,12 +53,14 @@ def build_fdat(cache,work,id,model_file):
  wanted='2977da028b27424a17a9b3bfbd732033e9e02062d6849280fa67f334985e1245' if detail else '1b41dc4d040ce50cdfb168dc75e43418817742390fdb4eb2dc3ac844a4e2d77f';checked(graph,wanted)
  m=onnx.load(graph,load_external_data=False)
  if any(t.external_data for t in m.graph.initializer):raise RuntimeError('Unexpected external data references in official graph.')
- promote_bfloat(m);onnx.checker.check_model(m);onnx.save(m,model_file)
+ promote_bfloat(m);onnx.checker.check_model(m)
+ converter=ROOT/'tools/models/fdat-directml-graph.py';spec_graph=importlib.util.spec_from_file_location('jm6_fdat_dml_graph',converter);graph_module=importlib.util.module_from_spec(spec_graph);spec_graph.loader.exec_module(graph_module)
+ m,graph_audit=graph_module.lower(m);onnx.save(m,model_file);(work/'graph-audit.json').write_text(json.dumps(graph_audit,indent=2),encoding='utf-8')
  code=ROOT/'tools/models/reference/fdat/fdat.py';checked(code,'db8966706b1b9f2dcb201ba334cdc3e25824767580b653a5bf64f019afe45e28')
  spec=importlib.util.spec_from_file_location('jm6_fdat_reference',code);module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
  state=load_file(str(weights));_,index,scale,dim,out_ch,mid,_=map(int,state['upsampler.MetaUpsample'].tolist());groups=len({k.split('.')[1] for k in state if k.startswith('groups.')});blocks=len({k.split('.')[3] for k in state if k.startswith('groups.0.blocks.')});heads,_,area=state['groups.0.blocks.0.attn.bias'].shape
  model=module.FDAT(num_in_ch=3,num_out_ch=out_ch,scale=scale,embed_dim=dim,num_groups=groups,depth_per_group=blocks//2,num_heads=heads,window_size=math.isqrt(area),ffn_expansion_ratio=state['groups.0.blocks.0.ffn.fc1.weight'].shape[0]/dim,aim_reduction_ratio=dim//state['groups.0.blocks.0.inter.cg.1.weight'].shape[0],upsampler_type=module.SampleMods3.__args__[index],mid_dim=mid)
- model.load_state_dict(state,strict=True);model.eval().float();return model,'input','output','Original BF16 graph/weights promoted to FP32; no architecture replacement.'
+ model.load_state_dict(state,strict=True);model.eval().float();return model,'input','output','Original BF16 values promoted losslessly to FP32; exact erf GELU and constant reduction axes adapted to ONNX 17. All original FP32 initializers are bitwise unchanged; no architecture or learned-weight replacement.'
 
 def build_alchemy(cache,model_file):
  from spandrel import ModelLoader
@@ -142,6 +144,8 @@ def main():
  license_file=dest/(id+'.LICENSE.txt');license_file.write_bytes((ROOT/'tools/models/licenses'/license_name).read_bytes());files['license']={'name':license_file.name,'sha256':sha(license_file)}
  attribution=dest/(id+'.ATTRIBUTION.txt');attribution.write_text(meta['fullName']+'\nAuthor: '+meta['author']+'\nSource: '+meta['source']+'\nLicense: '+meta['license']+'\nOriginal SHA-256: '+meta['sourceSha256']+'\nChanges: '+transformation+'\n',encoding='utf-8');files['attribution']={'name':attribution.name,'sha256':sha(attribution)}
  manifest={'version':2,'id':id,'modelVersion':meta['version'],'engine':'onnx','task':meta['task'],'nativeScale':meta['nativeScale'],'inputMultiple':meta['inputMultiple'],'sourceSha256':meta['sourceSha256'],'license':meta['license'],'licenseAccepted':True,'files':files,'input':inp,'output':out,'transformation':transformation,'validation':{'pipeline':'jm6-onnx-v1','passed':False,'images':3,'provider':'cpu','cases':[]}}
+ if meta.get('graphVersion'):
+  audit=json.loads((work/'graph-audit.json').read_text(encoding='utf-8'));manifest.update(graphVersion=meta['graphVersion'],opset=17,spatialSymbols=audit['spatialSymbols'])
  if luts is not None:manifest['lutSize']=33
  (work/'draft.json').write_text(json.dumps({'manifest':manifest,'metadata':meta},indent=2),encoding='utf-8')
  cases=[]

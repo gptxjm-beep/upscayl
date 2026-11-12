@@ -12,7 +12,9 @@
     "source": "https://github.com/the-database/MangaJaNai/releases/tag/3.0.0",
     "sourceSha256": "fbafec1f5a126c251de8a21e177e5a710ba2e75c7fd88fe989eb8df0508790c9",
     "license": "CC-BY-NC-4.0",
-    "author": "the-database"
+    "author": "the-database",
+    "graphVersion": "fdat-dml17-v1",
+    "opset": 17
   },
   "4x-illustrationjanai-v3denoise-fdat-xl": {
     "name": "IllustrationJaNai V3 Denoise",
@@ -27,7 +29,9 @@
     "source": "https://github.com/the-database/MangaJaNai/releases/tag/3.0.0",
     "sourceSha256": "3099fd76f427ee29513aa91dda02b9c1a54e0f7fdd08b653175655de798562f7",
     "license": "CC-BY-NC-4.0",
-    "author": "the-database"
+    "author": "the-database",
+    "graphVersion": "fdat-dml17-v1",
+    "opset": 17
   },
   "4x-ultrasharp-v2-dat2": {
     "name": "UltraSharp V2",
