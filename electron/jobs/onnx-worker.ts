@@ -121,7 +121,10 @@ export class PipelineRuntime{
   const args=['-i',filesystemPath(input),'-o',filesystemPath(output),'-m',filesystemPath(model.directory),'-n',model.id,'-z',String(model.nativeScale),'-g',options.gpuId||'0','-t',String(options.tileSize||0),'-f',options.format,'-c',options.compression];
   if(options.width&&options.height)args.push('-r',options.width+'x'+options.height);else if(options.width)args.push('-w',String(options.width));else args.push('-s',String(model.nativeScale));if(model.inputMultiple>1)args.push('-a',String(model.inputMultiple));if(model.fullPrecision)args.push('-F','1');if(options.ttaMode)args.push('-x');
   log({event:'ncnn-bridge',id:model.id,version:model.version,hash:model.hash,processPerStage:true});
-  const control=fs.mkdtempSync(path.join(options.control||path.dirname(output),'.bridge-')),owner=options.control?path.join(options.control,'bridge-owner.json'):undefined;
+  // Windows' mkdtemp CRT path can still enforce MAX_PATH. An exclusive
+  // mkdir with a cryptographic suffix also preserves the plain owner path.
+  const control=path.join(options.control||path.dirname(output),'.bridge-'+crypto.randomBytes(12).toString('hex')),owner=options.control?path.join(options.control,'bridge-owner.json'):undefined;
+  fs.mkdirSync(filesystemPath(control));
   fs.writeFileSync(path.join(control,'lease'),'1');fs.writeFileSync(path.join(control,'manifest'),Buffer.from(filesystemPath(input)).toString('hex')+'\t'+Buffer.from(filesystemPath(output)).toString('hex')+'\n');args.push('-Q',filesystemPath(control),'-L',filesystemPath(path.join(control,'manifest')));
   try{await new Promise<void>((resolve,reject)=>{let tail='';const child=spawn(model.nativeEngine!,args,{windowsHide:true,env:process.env});
    if(owner&&child.pid){const fd=fs.openSync(owner,'w');try{fs.writeFileSync(fd,JSON.stringify({pid:child.pid,control}));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
