@@ -1,0 +1,13 @@
+{
+  "runtime": "1.31.1",
+  "source": "https://github.com/microsoft/onnxruntime/blob/v1.31.1/onnxruntime/core/providers/dml/DmlExecutionProvider/src/Operators/OperatorRegistration.cpp",
+  "sourceSha256": "82ba5f2f391978bd2fc36a821fd53ad9157afac56f0f16e6830b880966d9daa0",
+  "standardGeluRegistered": false,
+  "standardErfVersions": [
+    9,
+    13
+  ],
+  "publishedDocIsNotExactVersionMatrix": true,
+  "interpretation": "Pinned source contains opset21 registrations despite published EP page saying up to20. Opset number alone is insufficient proof. Standard-domain Gelu is absent, whereas com.microsoft.Gelu(1) and standard Erf(9,13) are registered. 181 original standard Gelu nodes are a concrete partitioning concern. Actual DML optimized graph/profile required to confirm placement and exception cause.",
+  "userHresultRootCauseProven": false
+}

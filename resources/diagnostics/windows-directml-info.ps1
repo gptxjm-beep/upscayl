@@ -1,5 +1,6 @@
 # Read-only, no administrator privileges or system changes. No machine/user IDs.
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $result = [ordered]@{}
 try {
   $os = Get-CimInstance Win32_OperatingSystem

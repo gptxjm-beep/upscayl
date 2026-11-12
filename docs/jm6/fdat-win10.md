@@ -4,7 +4,7 @@ Target: Windows **10** x64, NVIDIA RTX 3060 Ti 8GB, Core i5-14400F, RAM16GB. Thi
 
 ## Findings and limits
 
-The two shipped FDAT graphs are FP32, IR12, ONNX **opset23**, with4331 nodes/1005 original initializers. Alchemy and3DLUT use opset17. Microsoft's published DirectML EP documentation states support up to opset20. This establishes an export/provider compatibility defect; it **does not prove that it alone caused the user's exception**. Both FDAT models load before inference fails, including on a720×804 source, so a corrupt model or total-page VRAM exhaustion must not be assumed.
+The two shipped FDAT graphs are FP32, IR12, ONNX **opset23**, with4331 nodes/1005 original initializers. Alchemy and3DLUT use opset17. Microsoft's published DirectML EP documentation states support up to opset20, but the pinned1.31.1 registration source already includes opset21 entries. Therefore the documentation alone is not an exact support matrix, and **opset23 alone does not prove the root cause**. More specifically, the pinned DML registration table has no standard-domain `Gelu` registration (181 such nodes in FDAT), while `com.microsoft.Gelu(1)` and standard `Erf(9,13)` are registered. This is a concrete partitioning concern addressed by exact-erf lowering; actual placement/failure attribution still requires a real DML optimized graph/profile. Both FDAT models load before inference fails, including on a720×804 source, so a corrupt model or total-page VRAM exhaustion must not be assumed.
 
 `0x8007023E` is HRESULT_FROM_WIN32(ERROR_UNHANDLED_EXCEPTION574), not E_OUTOFMEMORY. In the pinned ORT1.31.1 source, MLOperatorAuthorImpl.cpp:2680 propagates an operator exception. The inserted `MemcpyFromHost / Memcpy_token_2787` node invokes CopyTensors across a runtime partition; the token is absent from the original graph. The copy node is the observed failure site, not a proven faulty original FDAT operator. Actual DML profiling/driver information is still needed.
 
@@ -48,6 +48,7 @@ Candidate Windows2022 CI uses the exact prior verified native engine, reuses pri
 ## Sources
 
 * DirectML EP requirements, opset and shape guidance: https://github.com/microsoft/onnxruntime/blob/gh-pages/docs/execution-providers/DirectML-ExecutionProvider.md
+* Pinned operator registration table (standard Gelu versus Erf): https://github.com/microsoft/onnxruntime/blob/v1.31.1/onnxruntime/core/providers/dml/DmlExecutionProvider/src/Operators/OperatorRegistration.cpp
 * Exact exception propagation: https://github.com/microsoft/onnxruntime/blob/v1.31.1/onnxruntime/core/providers/dml/DmlExecutionProvider/src/MLOperatorAuthorImpl.cpp
 * Runtime copy node: https://github.com/microsoft/onnxruntime/blob/v1.31.1/onnxruntime/core/providers/dml/DmlExecutionProvider/src/Operators/DmlOperatorMemcpy.cpp
 * DirectML version history: https://github.com/MicrosoftDocs/windows-ai-docs/blob/docs/docs/directml/dml-version-history.md
